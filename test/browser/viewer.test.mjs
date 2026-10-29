@@ -89,6 +89,21 @@ test("s shows and hides the stack and f the files, each on its own; with both hi
   assert.deepEqual(await shown(), [true, true, true]);
 });
 
+test("long lines wrap instead of scrolling sideways", options, async () => {
+  const { repo, page } = await openViewer();
+  repo.commit("long", { "src/app.js": `const a = 1;\nconst b = "${"x".repeat(600)}";\n` });
+  await page.waitFor(() => document.querySelector(".file-diff > *")?.shadowRoot?.textContent.includes("x".repeat(600)), { timeout: 10000, what: "the long line" });
+  const overflow = await page.eval(() =>
+    [...document.querySelector(".file-diff > *").shadowRoot.querySelectorAll("pre, code")].map((el) => el.scrollWidth - el.clientWidth).filter((extra) => extra > 1),
+  );
+  assert.deepEqual(overflow, [], "no part of the diff is wider than it shows");
+  const rows = await page.eval(() => {
+    const line = [...document.querySelector(".file-diff > *").shadowRoot.querySelectorAll("code[data-additions] [data-line]")].find((l) => l.textContent.includes("xxx"));
+    return Math.round(line.getBoundingClientRect().height / parseFloat(getComputedStyle(line).lineHeight));
+  });
+  assert.ok(rows > 1, `the long line wraps onto ${rows} rows`);
+});
+
 test("Auto shows split diffs in a wide window and one column in a narrow one", options, async () => {
   const { page } = await openViewer();
   // Pierre marks its <pre> "split" or, for one column, "single".

@@ -121,7 +121,7 @@ function renderFileViews() {
       diffStyle: state.diffStyle,
       theme: PIERRE_THEMES,
       themeType: root.dataset.theme,
-      overflow: "scroll",
+      overflow: "wrap",
       lineDiffType: "word-alt",
       hunkSeparators: "line-info",
       collapsed: viewedState(file) === "viewed" || startsCollapsed(file),
