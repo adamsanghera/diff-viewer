@@ -33,6 +33,22 @@ const PREFERS_DARK = matchMedia("(prefers-color-scheme: dark)");
 const PIERRE_THEMES = { light: "pierre-light", dark: "pierre-dark" };
 const STATUS_MARKS = { added: "A", deleted: "D", modified: "M", renamed: "R", copied: "C" };
 const LAYOUTS = ["auto", "split", "unified"];
+/**
+ * Graphite's row colors inside Pierre's shadow roots. Pierre blends each
+ * row's color from its theme through several mixes, which its override
+ * variables do not reach, so these set the backgrounds directly, from the
+ * page's tokens (custom properties inherit into shadow roots).
+ */
+const GRAPHITE_DIFF_CSS = `
+pre, [data-code], [data-content], [data-gutter-buffer], [data-diffs-header], [data-line-type="context"], [data-column-number][data-line-type="context"], [data-gutter] { background-color: var(--bg) !important; }
+[data-line-type="change-addition"] { background-color: var(--diff-added) !important; }
+[data-line-type="change-deletion"] { background-color: var(--diff-removed) !important; }
+[data-line-type="change-addition"] [data-diff-span] { background-color: var(--diff-added-word) !important; }
+[data-line-type="change-deletion"] [data-diff-span] { background-color: var(--diff-removed-word) !important; }
+[data-column-number][data-line-type="change-addition"] { color: var(--diff-added-number) !important; }
+[data-column-number][data-line-type="change-deletion"] { color: var(--diff-removed-number) !important; }
+[data-separator], [data-separator-content], [data-separator-wrapper] { background-color: var(--bg-soft) !important; color: var(--text-faint); }
+`;
 // Under Auto, the narrowest diff pane that gets split diffs: each side then still shows about 60 columns of code.
 const AUTO_SPLIT_MIN_WIDTH = 1000;
 
@@ -236,7 +252,7 @@ function renderFiles() {
       lineDiffType: "word-alt",
       hunkSeparators: "line-info",
       collapsed: viewedState(file) === "viewed" || startsCollapsed(file),
-      unsafeCSS: ROW_MARK_CSS,
+      unsafeCSS: GRAPHITE_DIFF_CSS + ROW_MARK_CSS,
       enableLineSelection: state.comments.enabled,
       onLineSelectionEnd: (range) => selectedLines(item, range),
       onLineClick: (props) => clickedLine(item, props),

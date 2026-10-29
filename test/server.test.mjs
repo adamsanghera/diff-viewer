@@ -154,6 +154,15 @@ test("the doorbell rings when another process writes to the store", async () => 
   assert.ok((await rang) - wrote < 500);
 });
 
+test("fonts come from their packages, and /fonts/ serves nothing else", async () => {
+  const repo = stackRepo();
+  const { get } = await serve(repo);
+  const font = await get("/fonts/inter/inter-latin-wght-normal.woff2");
+  assert.deepEqual([font.status, font.headers.get("content-type")], [200, "font/woff2"]);
+  assert.equal((await get("/fonts/express/index.js")).status, 404);
+  assert.equal((await get("/fonts/inter/..%2F..%2F..%2Fpackage.json")).status, 404);
+});
+
 test("static files cannot climb out of their folder", async () => {
   const repo = stackRepo();
   const { get } = await serve(repo);
