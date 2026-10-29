@@ -1,5 +1,5 @@
 /** The header above a branch's description and diff: its name, PR, parent, range and counts. */
-import { counted } from "./kinds.js";
+import { counted } from "./filters.js";
 import { escapeHtml, shortSha } from "./lib/format.js";
 import { $, state } from "./state.js";
 

@@ -12,7 +12,7 @@ import {
   selectedLines,
   viewedState,
 } from "./comments.js";
-import { KINDS, rendered, renderedPaths } from "./kinds.js";
+import { hiddenSummary, rendered, renderedPaths } from "./filters.js";
 import { escapeHtml, startsCollapsed } from "./lib/format.js";
 import { $, root, state } from "./state.js";
 
@@ -144,18 +144,8 @@ function renderFileViews() {
     state.views.push(item);
   });
   if (!state.diff.files.length) container.innerHTML = '<p class="empty">This branch changes nothing.</p>';
-  const hidden = hiddenNote(state.diff.files.filter((f) => !rendered(f)));
-  if (hidden) container.insertAdjacentHTML("beforeend", hidden);
-}
-
-/** "2 test files and 1 generated file hidden", with buttons that show them; empty when none are. */
-function hiddenNote(files) {
-  const parts = Object.keys(KINDS)
-    .map((kind) => [kind, files.filter((f) => f.kind === kind).length])
-    .filter(([, n]) => n > 0)
-    .map(([kind, n]) => `<button class="link" type="button" data-show-kind="${kind}">${n} ${kind === "test" ? "test" : "generated"} ${n === 1 ? "file" : "files"}</button>`);
-  if (!parts.length) return "";
-  return `<p class="hidden-files faint">${parts.join(" and ")} hidden. Click to show ${parts.length === 1 ? "them" : "either kind"}.</p>`;
+  const summary = hiddenSummary(state.diff.files);
+  if (summary) container.insertAdjacentHTML("beforeend", `<p class="hidden-files faint">${escapeHtml(summary)}. <button class="link" type="button" data-reset-filters>Show all files</button></p>`);
 }
 
 /** Renders each file again with its current threads as inline annotations, or none. */

@@ -4,7 +4,7 @@
  * the stack with its title, first paragraph and size, in the sidebar's order.
  */
 import { cleanUpViews } from "./diffs.js";
-import { shownSize } from "./kinds.js";
+import { shownSize } from "./filters.js";
 import { escapeHtml } from "./lib/format.js";
 import { stackRows } from "./lib/tree.js";
 import { $, state } from "./state.js";

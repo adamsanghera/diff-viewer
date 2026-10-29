@@ -1,7 +1,7 @@
 /** The sidebar: the stack, the branch's files, and showing or hiding it. */
 import { viewedState } from "./comments.js";
 import { escapeHtml } from "./lib/format.js";
-import { counted, KINDS, rendered, shownKinds, shownSize } from "./kinds.js";
+import { counted, extensionOf, filters, HIDE_CHOICES, hiddenSummary, KIND_CHOICES, rendered, shownSize } from "./filters.js";
 import { buildTree, stackRows } from "./lib/tree.js";
 import { $, root, state } from "./state.js";
 
@@ -83,24 +83,56 @@ export function renderStack() {
   $("#stack").innerHTML = rows.join("");
 }
 
-/* The branch's files */
+/* The filter menu */
 
-/** Toggles for showing tests and generated files, with how many the branch has; only kinds the branch has. */
-function renderKindFilters(files) {
-  const toggles = Object.entries(KINDS)
-    .map(([kind, label]) => [kind, label, files.filter((f) => f.kind === kind).length])
-    .filter(([, , n]) => n > 0)
+const CHECK = '<svg class="icon menu-check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>';
+
+/** The filter menu's contents: the kind to show, what to hide, and each extension the branch has, with counts. */
+export function renderFilterMenu() {
+  const files = state.diff?.files ?? [];
+  const extensions = new Map();
+  for (const f of files) extensions.set(extensionOf(f.path), (extensions.get(extensionOf(f.path)) ?? 0) + 1);
+  const kinds = Object.entries(KIND_CHOICES)
+    .map(([kind, label]) => `<button class="menu-item" type="button" role="menuitemradio" aria-checked="${filters.kind === kind}" data-filter-kind="${kind}">${label}${filters.kind === kind ? CHECK : ""}</button>`)
+    .join("");
+  const hides = Object.entries(HIDE_CHOICES)
+    .map(([key, label]) => `<label class="menu-item">${label}<input type="checkbox" data-filter-hide="${key}"${filters[key] ? " checked" : ""}></label>`)
+    .join("");
+  const exts = [...extensions]
+    .sort(([a], [b]) => a.localeCompare(b))
     .map(
-      ([kind, label, n]) =>
-        `<button class="kind-toggle" type="button" data-show-kind="${kind}" aria-pressed="${shownKinds.has(kind)}" title="${shownKinds.has(kind) ? "Hide" : "Show"} ${label.toLowerCase()} files">${label} <span class="faint">${n}</span></button>`,
-    );
-  $("#kind-filters").innerHTML = toggles.join("");
-  $("#kind-filters").hidden = !toggles.length;
+      ([ext, n]) =>
+        `<label class="menu-item">${escapeHtml(ext)} <span class="faint">${n}</span><input type="checkbox" data-filter-ext="${escapeHtml(ext)}"${filters.hiddenExtensions.includes(ext) ? "" : " checked"}></label>`,
+    )
+    .join("");
+  $("#filter-menu").innerHTML = `<div class="menu-section"><h3>Kind</h3>${kinds}</div><div class="menu-section"><h3>Hide</h3>${hides}</div>${exts ? `<div class="menu-section"><h3>Extension</h3>${exts}</div>` : ""}`;
 }
+
+/** Opens the filter menu under its button, or closes it. */
+export function toggleFilterMenu(open = $("#filter-menu").hidden) {
+  const menu = $("#filter-menu");
+  const button = $("#filter-btn");
+  if (open) {
+    renderFilterMenu();
+    // Fixed, so the files panel's scrolling does not clip it.
+    const r = button.getBoundingClientRect();
+    menu.style.top = `${r.bottom + 6}px`;
+    menu.style.left = `${r.left}px`;
+  }
+  menu.hidden = !open;
+  button.setAttribute("aria-expanded", String(open));
+  button.classList.toggle("active", open || hiddenSummary(state.diff?.files ?? []) !== "");
+}
+
+/* The branch's files */
 
 export function renderTree() {
   const all = state.diff?.files ?? [];
-  renderKindFilters(all);
+  const summary = hiddenSummary(all);
+  $("#hidden-summary").hidden = !summary;
+  $("#hidden-summary-text").textContent = summary;
+  $("#filter-btn").classList.toggle("active", !$("#filter-menu").hidden || summary !== "");
+  if (!$("#filter-menu").hidden) renderFilterMenu();
   const files = all.filter(rendered);
   const query = $("#filter").value.trim().toLowerCase();
   const shown = query ? files.filter((f) => f.path.toLowerCase().includes(query)) : files;

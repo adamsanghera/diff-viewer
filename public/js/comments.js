@@ -13,7 +13,7 @@
 import { anchorFromRange, blockAt, descriptionTarget, paintDescription, threadAtPoint } from "./description.js";
 import { stackCards } from "./lib/card-stack.js";
 import { anchorLabel, railHead, railList, threadCard } from "./lib/cards.js";
-import { counted, renderedPaths } from "./kinds.js";
+import { counted, renderedPaths } from "./filters.js";
 import { escapeHtml } from "./lib/format.js";
 import { keyHint, submitMode } from "./lib/keys.js";
 import { $, autosize, getJson, PIERRE_SIDE, postJson, root, SIDE_OF, state, toast } from "./state.js";

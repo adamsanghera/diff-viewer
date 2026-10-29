@@ -14,13 +14,13 @@
 import { renderBranchHead } from "./branch-head.js";
 import { commentHooks, composerOpen, initComments, loadComments, renderComments, scheduleLayout, threadsInline, toggleBranchViewed } from "./comments.js";
 import { renderDescription } from "./description.js";
-import { toggleKind } from "./kinds.js";
+import { filters, resetFilters, setFilters } from "./filters.js";
 import { renderOverview } from "./overview.js";
 import { applyLayout, renderFiles, rerenderFiles, setLayout } from "./diffs.js";
 import { escapeHtml } from "./lib/format.js";
 import { reportLoad } from "./perf.js";
 import { installShortcuts } from "./shortcuts.js";
-import { renderStack, renderTree, toggleFilesPanel, toggleStackPanel } from "./sidebar.js";
+import { renderStack, renderTree, toggleFilesPanel, toggleFilterMenu, toggleStackPanel } from "./sidebar.js";
 import { $, getJson, state, toast } from "./state.js";
 import { applyTheme, cycleTheme, PREFERS_DARK } from "./theme.js";
 
@@ -186,9 +186,9 @@ function connectLive() {
   }
 }
 
-/** Shows or hides tests or generated files, and redraws everything that lists or counts files. */
-function showOrHideKind(kind) {
-  toggleKind(kind);
+/** Applies a change to the file filters, and redraws everything that lists or counts files. */
+function applyFilters(change) {
+  change();
   if (state.overview) {
     renderOverview();
   } else if (state.diff) {
@@ -244,12 +244,33 @@ async function main() {
   };
   $("#stack").addEventListener("click", followBranchLink);
   $("#diffs").addEventListener("click", followBranchLink);
-  for (const where of ["#kind-filters", "#diffs"]) {
+  for (const where of ["#hidden-summary", "#diffs"]) {
     $(where).addEventListener("click", (event) => {
-      const toggle = event.target.closest("[data-show-kind]");
-      if (toggle) showOrHideKind(toggle.dataset.showKind);
+      if (event.target.closest("[data-reset-filters]")) applyFilters(resetFilters);
     });
   }
+  $("#filter-btn").addEventListener("click", () => toggleFilterMenu());
+  $("#filter-menu").addEventListener("click", (event) => {
+    const kind = event.target.closest("[data-filter-kind]")?.dataset.filterKind;
+    if (kind) applyFilters(() => setFilters({ kind }));
+  });
+  $("#filter-menu").addEventListener("change", (event) => {
+    const box = event.target;
+    if (box.dataset.filterHide) applyFilters(() => setFilters({ [box.dataset.filterHide]: box.checked }));
+    if (box.dataset.filterExt) {
+      const others = filters.hiddenExtensions.filter((ext) => ext !== box.dataset.filterExt);
+      applyFilters(() => setFilters({ hiddenExtensions: box.checked ? others : [...others, box.dataset.filterExt] }));
+    }
+  });
+  document.addEventListener("click", (event) => {
+    if ($("#filter-menu").hidden) return;
+    // The path is fixed when the click starts; a choice re-renders the menu, detaching the target before the click reaches here.
+    const inside = event.composedPath().some((el) => el === $("#filter-menu") || el === $("#filter-btn"));
+    if (!inside) toggleFilterMenu(false);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !$("#filter-menu").hidden) toggleFilterMenu(false);
+  });
   $("#branch-head").addEventListener("click", (event) => {
     if (event.target.closest("[data-latest]")) show(state.branch, { push: false });
     if (event.target.closest("[data-branch-viewed]")) toggleBranchViewed();
