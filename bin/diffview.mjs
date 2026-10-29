@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { parseArgs } from "node:util";
 import { runComments } from "../lib/comments-cli.mjs";
 import { runDescribe } from "../lib/describe-cli.mjs";
+import { runReview } from "../lib/review-cli.mjs";
 import { liveServers, register } from "../lib/registry.mjs";
 import { openRepo } from "../lib/repo.mjs";
 import { startServer } from "../lib/server.mjs";
@@ -12,19 +13,24 @@ import { ensureVendorBundle } from "../lib/vendor.mjs";
 
 if (process.argv[2] === "comments") process.exit(await runComments(process.argv.slice(3)));
 if (process.argv[2] === "describe") process.exit(await runDescribe(process.argv.slice(3)));
+if (process.argv[2] === "review") process.exit(await runReview(process.argv.slice(3)));
 
 const SOURCE_NAMES = SOURCES.map((s) => s.name);
 
 const USAGE = `Usage: diffview [repo-dir] [options]
+       diffview review [repo-dir] [options]
        diffview comments <verb> [options]
-       diffview describe [options]
+       diffview describe [<file>] [options]
 
 Opens the stack of the checked-out branch in a local diff viewer: every
 branch from trunk to the top, each with its own diff. Stacks made with
 Graphite, Origin, gh stack, or plain git branches all work. When a viewer
 already serves this checkout, diffview prints its link and exits instead of
-starting another (unless --port is given). "diffview comments --help" lists
-the verbs agents use to read and answer comments.
+starting another (unless --port is given).
+
+Agents hand a stack to review with "diffview review", answer comments with
+"diffview comments", and link descriptions with "diffview describe"; each
+takes --help.
 
 Options:
   -b, --branch <name>        Open this branch's stack instead of the checked-out one.
