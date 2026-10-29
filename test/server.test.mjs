@@ -178,6 +178,15 @@ test("the doorbell rings when another process writes to the store", async () => 
   assert.ok((await rang) - wrote < 500);
 });
 
+test("API responses say how long their git commands and the whole request took", async () => {
+  const repo = stackRepo();
+  const { get } = await serve(repo);
+  const timing = (await get("/api/diff?branch=a&stack=b")).headers.get("server-timing");
+  const [, gitMs, calls, totalMs] = /^git;dur=([\d.]+);desc="(\d+) git calls", total;dur=([\d.]+)$/.exec(timing) ?? [];
+  assert.ok(Number(calls) > 0 && Number(gitMs) > 0 && Number(totalMs) > 0, timing);
+  assert.match((await get("/api/info")).headers.get("server-timing"), /git;dur=[\d.]+;desc="1 git call"/);
+});
+
 test("fonts come from their packages, and /fonts/ serves nothing else", async () => {
   const repo = stackRepo();
   const { get } = await serve(repo);
