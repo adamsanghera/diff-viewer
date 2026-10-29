@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>diffview</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/js/boot.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <button class="icon-btn" id="toggle-sidebar" title="Show or hide the stack (\)" aria-label="Show or hide the stack">
+      <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="2"/><path d="M6 2.5v11"/></svg>
+    </button>
+    <div class="crumbs"><span id="repo-name"></span><span class="sep">/</span><span class="here" id="branch-name"></span></div>
+    <span class="chip" id="source-chip" hidden></span>
+    <div class="actions">
+      <div class="seg" role="group" aria-label="Diff layout">
+        <button type="button" data-layout="split" title="Side by side (s)">Split</button>
+        <button type="button" data-layout="unified" title="One column (s)">Unified</button>
+      </div>
+      <span class="live" id="live" title="Live reload: connecting"></span>
+      <button class="icon-btn" id="theme" type="button" aria-label="Theme">
+        <svg class="icon i-auto" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5v11a5.5 5.5 0 0 0 0-11z" fill="currentColor"/></svg>
+        <svg class="icon i-light" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"/></svg>
+        <svg class="icon i-dark" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7z"/></svg>
+      </button>
+    </div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <section>
+        <h2>Stack <span class="faint" id="stack-meta"></span></h2>
+        <ol class="stack" id="stack"></ol>
+      </section>
+      <section>
+        <h2>Files <span class="faint" id="files-meta"></span></h2>
+        <div class="filter-wrap"><input id="filter" type="search" placeholder="Filter files" autocomplete="off" spellcheck="false"><kbd>/</kbd></div>
+        <nav class="tree" id="tree"></nav>
+      </section>
+    </aside>
+    <main class="main" id="main">
+      <div class="branch-head" id="branch-head"></div>
+      <div class="diffs" id="diffs"></div>
+    </main>
+  </div>
+  <div class="toast" id="toast" hidden></div>
+  <script type="module" src="/static/js/main.js"></script>
+</body>
+</html>
