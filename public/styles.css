@@ -55,6 +55,7 @@
   --accent-soft: color-mix(in srgb, rgb(53, 101, 226) 12%, transparent);
   --link: rgb(38, 87, 213);
   --success: rgb(58, 154, 67);
+  --success-soft: color-mix(in srgb, rgb(58, 154, 67) 12%, transparent);
   --warning: rgb(214, 107, 0);
   --warning-soft: color-mix(in srgb, rgb(240, 124, 0) 10%, transparent);
   --merged: rgb(130, 80, 223);
@@ -129,6 +130,7 @@
   --link: rgb(157, 202, 255);
   --warning: rgb(240, 124, 0);
   --warning-soft: color-mix(in srgb, rgb(240, 124, 0) 16%, transparent);
+  --success-soft: color-mix(in srgb, rgb(58, 154, 67) 20%, transparent);
   --merged: rgb(171, 125, 248);
   --merged-soft: color-mix(in srgb, rgb(171, 125, 248) 18%, transparent);
   --code-bg: rgba(223, 223, 255, 0.06);
@@ -271,8 +273,10 @@ a.stack-row:hover { background: var(--hover); }
 .badge-merged { background: var(--merged-soft); color: var(--merged); }
 h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 .stack-row.stack-merged .dot { border-color: var(--merged); background: var(--merged); }
-.btn-viewed.is-viewed { color: var(--success); }
-.btn-viewed.is-changed { color: var(--warning); }
+.btn-viewed.is-viewed { background: var(--success-soft); color: var(--success); }
+.btn-viewed.is-changed { background: var(--warning-soft); color: var(--warning); }
+.btn-viewed.is-viewed:hover { background: color-mix(in srgb, var(--success-soft), var(--success) 8%); }
+.btn-viewed.is-changed:hover { background: color-mix(in srgb, var(--warning-soft), var(--warning) 8%); }
 .stack-row .dot {
   position: relative;
   flex: none;
