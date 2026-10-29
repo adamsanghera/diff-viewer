@@ -12,6 +12,7 @@ import {
   selectedLines,
   viewedState,
 } from "./comments.js";
+import { KINDS, rendered, renderedPaths } from "./kinds.js";
 import { escapeHtml, startsCollapsed } from "./lib/format.js";
 import { $, root, state } from "./state.js";
 
@@ -108,7 +109,9 @@ function renderFileViews() {
   const container = $("#diffs");
   container.replaceChildren();
   const parsed = parsedByPath(state.diff.patch);
+  state.renderedPaths = renderedPaths();
   state.diff.files.forEach((file, index) => {
+    if (!rendered(file)) return;
     const section = document.createElement("section");
     section.className = "file-diff";
     section.id = `file-${index}`;
@@ -147,6 +150,18 @@ function renderFileViews() {
     state.views.push(item);
   });
   if (!state.diff.files.length) container.innerHTML = '<p class="empty">This branch changes nothing.</p>';
+  const hidden = hiddenNote(state.diff.files.filter((f) => !rendered(f)));
+  if (hidden) container.insertAdjacentHTML("beforeend", hidden);
+}
+
+/** "2 test files and 1 generated file hidden", with buttons that show them; empty when none are. */
+function hiddenNote(files) {
+  const parts = Object.keys(KINDS)
+    .map((kind) => [kind, files.filter((f) => f.kind === kind).length])
+    .filter(([, n]) => n > 0)
+    .map(([kind, n]) => `<button class="link" type="button" data-show-kind="${kind}">${n} ${kind === "test" ? "test" : "generated"} ${n === 1 ? "file" : "files"}</button>`);
+  if (!parts.length) return "";
+  return `<p class="hidden-files faint">${parts.join(" and ")} hidden. Click to show ${parts.length === 1 ? "them" : "either kind"}.</p>`;
 }
 
 /** Renders each file again with its current threads as inline annotations, or none. */

@@ -14,6 +14,7 @@
 import { renderBranchHead } from "./branch-head.js";
 import { commentHooks, composerOpen, initComments, loadComments, renderComments, scheduleLayout, threadsInline, toggleBranchViewed } from "./comments.js";
 import { renderDescription } from "./description.js";
+import { toggleKind } from "./kinds.js";
 import { renderOverview } from "./overview.js";
 import { applyLayout, renderFiles, rerenderFiles, setLayout } from "./diffs.js";
 import { escapeHtml } from "./lib/format.js";
@@ -185,6 +186,20 @@ function connectLive() {
   }
 }
 
+/** Shows or hides tests or generated files, and redraws everything that lists or counts files. */
+function showOrHideKind(kind) {
+  toggleKind(kind);
+  if (state.overview) {
+    renderOverview();
+  } else if (state.diff) {
+    renderBranchHead();
+    renderFiles();
+    renderTree();
+    renderComments();
+  }
+  renderStack();
+}
+
 /* Start */
 
 let wasInline = null;
@@ -208,6 +223,7 @@ async function main() {
   applyTheme();
   setLayout(state.layout);
   Object.assign(commentHooks, {
+    renderFiles,
     rerenderFiles,
     renderTree,
     showVersion: (seq) => show(state.branch, { push: false, version: seq }),
@@ -227,6 +243,12 @@ async function main() {
   };
   $("#stack").addEventListener("click", followBranchLink);
   $("#diffs").addEventListener("click", followBranchLink);
+  for (const where of ["#kind-filters", "#diffs"]) {
+    $(where).addEventListener("click", (event) => {
+      const toggle = event.target.closest("[data-show-kind]");
+      if (toggle) showOrHideKind(toggle.dataset.showKind);
+    });
+  }
   $("#branch-head").addEventListener("click", (event) => {
     if (event.target.closest("[data-latest]")) show(state.branch, { push: false });
     if (event.target.closest("[data-branch-viewed]")) toggleBranchViewed();

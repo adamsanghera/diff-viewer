@@ -13,6 +13,7 @@
 import { anchorFromRange, blockAt, descriptionTarget, paintDescription, threadAtPoint } from "./description.js";
 import { stackCards } from "./lib/card-stack.js";
 import { anchorLabel, railHead, railList, threadCard } from "./lib/cards.js";
+import { counted, renderedPaths } from "./kinds.js";
 import { escapeHtml } from "./lib/format.js";
 import { keyHint, submitMode } from "./lib/keys.js";
 import { $, autosize, getJson, PIERRE_SIDE, postJson, root, SIDE_OF, state, toast } from "./state.js";
@@ -45,7 +46,7 @@ code[data-unified] [data-selected-line],
 `;
 
 /** Set by main.js: re-renders the diffs, as when threads move between the rail and inline. */
-export const commentHooks = { rerenderFiles() {}, showVersion() {}, refreshAfterComposer() {}, renderTree() {} };
+export const commentHooks = { renderFiles() {}, rerenderFiles() {}, showVersion() {}, refreshAfterComposer() {}, renderTree() {} };
 
 const batching = () => state.comments.pendingCount > 0;
 
@@ -160,6 +161,8 @@ export async function loadComments() {
   state.comments.version = data.version;
   if (state.comments.active && !data.threads.some((t) => t.id === state.comments.active)) state.comments.active = null;
   const changed = before !== JSON.stringify([state.comments.threads, state.comments.viewed]);
+  // A new thread on a hidden test or generated file brings that file into view.
+  if (state.views.length && renderedPaths() !== state.renderedPaths) commentHooks.renderFiles();
   renderComments({ annotationsChanged: changed && threadsInline() });
   if (changed) commentHooks.renderTree();
 }
@@ -480,7 +483,7 @@ async function setViewed(item, viewed) {
 
 /** Whether every file of the branch shown is viewed as it reads now. */
 function branchViewed() {
-  const files = state.diff?.files ?? [];
+  const files = (state.diff?.files ?? []).filter(counted);
   return files.length > 0 && files.every((f) => viewedState(f) === "viewed");
 }
 

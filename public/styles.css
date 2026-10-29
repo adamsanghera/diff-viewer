@@ -302,6 +302,20 @@ a.stack-row:hover { background: var(--hover); }
 }
 #filter:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 #filter::-webkit-search-cancel-button { display: none; }
+.kind-filters { display: flex; gap: 6px; margin: 0 2px 8px; }
+.kind-filters[hidden] { display: none; }
+.kind-toggle {
+  height: 22px;
+  padding: 0 8px;
+  border: var(--hairline) solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  color: var(--text-soft);
+  text-decoration: line-through;
+}
+.kind-toggle[aria-pressed="true"] { background: var(--bg-control); color: var(--text); text-decoration: none; }
+.kind-toggle:hover { background: var(--hover); }
+.hidden-files { margin: 12px 0 0; font-size: var(--text-md); }
 .filter-wrap kbd { position: absolute; right: 8px; top: 6px; font: var(--text-xs) var(--mono); color: var(--text-faint); border: 1px solid var(--border); border-radius: var(--radius-xs); padding: 0 5px; line-height: 16px; }
 #filter:focus + kbd { display: none; }
 .tree ul { list-style: none; margin: 0; padding: 0 0 0 10px; }
