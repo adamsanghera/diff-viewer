@@ -44,6 +44,12 @@ test("the page shows the stack, the branch's files, and its diff", options, asyn
     }),
   );
   assert.deepEqual(line, ["none", "mid-edge", "edge-edge", "edge-mid"], "a line runs from the top branch's dot down to trunk's");
+  await page.waitFor(() => document.querySelector("#stack .stack-size .add"), { what: "each branch's size" });
+  assert.deepEqual(
+    await page.eval(() => [...document.querySelectorAll("#stack .stack-size")].map((s) => s.textContent)),
+    ["+1 −1", "+2 −0"],
+    "b changes one line of app.js; a adds its two",
+  );
   assert.equal(view.active, "b");
   assert.match(view.prefix, /^feat\//);
   assert.deepEqual(view.files, ["app.js"]);

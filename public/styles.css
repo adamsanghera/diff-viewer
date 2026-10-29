@@ -238,6 +238,9 @@ a.stack-row:hover { background: var(--hover); }
 .stack-row.active { background: var(--bg-control); color: var(--text); font-weight: var(--weight-semibold); }
 .stack-row.active .dot { color: var(--accent); }
 .stack-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stack-label { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+/* Its height is kept while the sizes load, so rows do not jump when they arrive. */
+.stack-size { min-height: 16px; font: var(--text-xs) / 16px var(--mono); font-weight: normal; color: var(--text-faint); }
 .stack-row .dot {
   position: relative;
   flex: none;

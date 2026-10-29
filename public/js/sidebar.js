@@ -56,8 +56,10 @@ export function renderStack() {
     ].join("");
     const active = !state.overview && entry.id === state.branch ? " active" : "";
     const top = index === 0 ? " stack-top" : "";
+    const size = state.stackSizes?.[entry.id];
+    const sizeText = size ? `<span class="add">+${size.additions}</span> <span class="del">−${size.deletions}</span>` : "";
     return `<li><a class="stack-row${top}${active}" href="?${new URLSearchParams({ branch: entry.id, stack: state.stackOf })}" data-branch="${escapeHtml(entry.id)}" style="--depth:${depth}" title="${escapeHtml(entry.id)} (from ${escapeHtml(entry.source)})">
-      <span class="dot"></span><span class="name">${escapeHtml(entry.id.slice(prefix.length))}</span>${badges}</a></li>`;
+      <span class="dot"></span><span class="stack-label"><span class="name">${escapeHtml(entry.id.slice(prefix.length))}</span><span class="stack-size">${sizeText}</span></span>${badges}</a></li>`;
   });
   rows.push(`<li><span class="stack-row trunk"><span class="dot"></span><span class="name">${escapeHtml(trunk ?? "trunk")}</span></span></li>`);
   if (hasOverview()) rows.unshift(overviewRow());
