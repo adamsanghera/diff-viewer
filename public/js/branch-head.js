@@ -1,4 +1,5 @@
 /** The header above a branch's description and diff: its name, PR, parent, range and counts. */
+import { renderBranchViewed } from "./comments.js";
 import { counted } from "./filters.js";
 import { escapeHtml, shortSha } from "./lib/format.js";
 import { $, state } from "./state.js";
@@ -23,11 +24,11 @@ export function renderBranchHead() {
       ${hidden ? `<span class="faint" title="Tests and generated files, not counted while hidden">(${hidden} hidden)</span>` : ""}
       · from ${escapeHtml(entry.source)}
       ${entry.needsRestack ? '<span class="badge badge-warn">needs restack</span>' : ""}
-      ${uncommitted ? '<span class="badge badge-head" title="Includes edits not yet committed">uncommitted changes</span>' : ""}
       <span id="branch-viewed"></span>
     </p>`;
   $("#comment-branch").hidden = !state.comments.enabled;
   $("#comment-branch").textContent = "Comment on the whole branch";
   $("#branch-name").textContent = entry.id;
   document.title = `${entry.id} · diffview`;
+  renderBranchViewed();
 }

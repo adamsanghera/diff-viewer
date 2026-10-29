@@ -48,14 +48,13 @@ async function humanComment({ repo, home }, { entry, path: file, startLine, endL
   const opened = await openRepo(repo.dir);
   const stack = await loadStack(opened, { entry });
   const e = stack.entries.find((x) => x.id === entry);
-  const workingTree = entry === opened.branch;
-  const { patch } = await branchDiff(opened, e, { workingTree });
+  const { patch } = await branchDiff(opened, e);
   const store = await openStore(home);
   try {
     return store.createThread({
       repo: opened.commonDir,
       entry,
-      snapshot: { base: e.base, head: e.head, workingTree, patch },
+      snapshot: { base: e.base, head: e.head, patch },
       kind: "lines",
       path: file,
       side: "new",
@@ -170,10 +169,12 @@ test("add starts a thread on lines, a file, or the whole branch", () => {
   assert.match(refused.err, /not shown together/);
 });
 
-test("an edit to the commented line makes the thread outdated, with what it now reads", async () => {
+test("a commit that edits the commented line makes the thread outdated, with what it now reads", async () => {
   const ctx = setup();
   const id = await humanComment(ctx, { entry: "feat/b", path: "src/app.js", startLine: 3, body: "Rename c?" });
   ctx.repo.write("src/app.js", "const a = 1;\nconst b = 2;\nconst sum = add(a, b);\n");
+  assert.match(ctx.cli("show", String(id)).out, /src\/app\.js line 3 · latest is v1/, "an uncommitted edit changes nothing");
+  ctx.repo.commit("rename");
   const show = ctx.cli("show", String(id));
   assert.match(show.out, /outdated: made on v1, its lines changed since \(were src\/app\.js line 3\)/);
   assert.match(show.out, /Now reads, in v2, src\/app\.js line 3:\n {4}const sum = add\(a, b\);/);
@@ -238,7 +239,11 @@ test("review lists what lacks a description, starts one viewer, links the Overvi
   assert.match(link, /\/view\?stack=feat%2Fb&overview=$/);
   assert.equal((await fetch(link)).status, 200);
 
+  assert.doesNotMatch(first.stdout, /Uncommitted/);
+
+  ctx.repo.write("src/app.js", "edited on disk\n");
   const second = review("--no-wait");
+  assert.match(second.stdout, /Uncommitted changes in .* \(1 path\) will not show: diffview shows only commits\. Commit them first\.\n/);
   assert.match(second.stdout, /A viewer already serves .* \(pid \d+\)\./);
   assert.ok(second.stdout.endsWith(`${link}\n`), "the same viewer, the same link");
 
@@ -291,10 +296,10 @@ test("describe links a file as a branch's description, and prints it as the file
   assert.equal(describe(ctx, "--branch", "nope").status, 2);
 });
 
-test("describe warns when the file would show in the checked-out branch's diff", () => {
+test("describe warns when committing everything would commit the file into the branch", () => {
   const ctx = setup();
   ctx.repo.write("notes.md", "In the worktree, untracked.\n");
-  assert.match(describe(ctx, "notes.md").err, /notes\.md is untracked in the worktree, so it shows in the checked-out branch's diff/);
+  assert.match(describe(ctx, "notes.md").err, /notes\.md is untracked in the worktree, so committing everything would commit it into the branch/);
   ctx.repo.write(".gitignore", ".notes/\n");
   ctx.repo.write(".notes/b.md", "In a gitignored folder.\n");
   const linked = describe(ctx, ".notes/b.md");
@@ -309,12 +314,12 @@ test("a comment on the description shows in list and show with its paragraph", a
   const opened = await openRepo(ctx.repo.dir);
   const stack = await loadStack(opened, { entry: "feat/b" });
   const entry = stack.entries.find((e) => e.id === "feat/b");
-  const { patch } = await branchDiff(opened, entry, { workingTree: true });
+  const { patch } = await branchDiff(opened, entry);
   const store = await openStore(ctx.home);
   const id = store.createThread({
     repo: opened.commonDir,
     entry: "feat/b",
-    snapshot: { base: entry.base, head: entry.head, workingTree: true, patch },
+    snapshot: { base: entry.base, head: entry.head, patch },
     kind: "description",
     descriptionSha: store.description(opened.commonDir, "feat/b").sha256,
     quote: "callers share it",

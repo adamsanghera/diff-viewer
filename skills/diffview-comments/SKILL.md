@@ -6,7 +6,10 @@ description: Hand a stack of branches to a human for review in diffview (start t
 # diffview comments
 
 The human reviews a stack of branches in diffview and comments on lines of
-each branch's diff. The comments live in a local SQLite store
+each branch's diff. **diffview shows only commits**: edits on disk, staged
+or not, and untracked files never appear, so commit before you ask for
+review, and commit again before you say a comment is addressed. The
+comments live in a local SQLite store
 (`~/.diffview`), never in the repo. Read and answer them with
 `diffview comments`, and change the code with your usual tools. If
 `diffview` is not on PATH, run `node ~/code/diff-viewer/bin/diffview.mjs
@@ -21,15 +24,18 @@ branch (repeatable), `--repo` widens it to every commented branch, and
 
 When a stack is ready for the human to review:
 
-1. Write and link each branch's description file, and the stack's (see
+1. Commit everything, on the branch it belongs to. Nothing uncommitted
+   shows in diffview.
+2. Write and link each branch's description file, and the stack's (see
    Descriptions below).
-2. From the repo, with the stack's top branch checked out, run
-   `diffview review` in a background shell. It lists anything still
-   missing a description, starts a viewer for this checkout (or reuses the
+3. From the repo, with the stack's top branch checked out, run
+   `diffview review` in a background shell. It warns about uncommitted
+   changes, lists anything still missing a description, starts a viewer
+   for this checkout (or reuses the
    one running), prints a link to the stack's Overview, and then waits for
    comments (4h by default).
-3. Give the human the link as soon as it prints.
-4. When comments arrive, `review` prints them in full and exits; work
+4. Give the human the link as soon as it prints.
+5. When comments arrive, `review` prints them in full and exits; work
    through them (the loop below), then run `diffview review --after <n>`
    again, with the `--after` it printed last, to hand the stack back.
 
@@ -39,7 +45,8 @@ When a stack is ready for the human to review:
    waiting on you, in full: the branch, where it sits, the lines around
    it, and every message. It covers the whole stack in one call, so there
    is no need to loop.
-2. Change the code for each thread, or decide not to and say why. A thread
+2. Change the code for each thread, or decide not to and say why, and
+   commit the change: the human sees it only once it is committed. A thread
    names its branch. When that is not the branch checked out, move to it
    with the stack's own tool and restack what sits above it: `show` ends
    with the commands for the tool that made the stack (Graphite, Origin,
@@ -71,8 +78,8 @@ remembers where the file is, and reloads the page when it changes.
 
 Keep description files outside the worktree, or in a gitignored folder in
 it (such as the repo's scratch folder for the feature). An untracked file in
-the worktree shows up in the checked-out branch's diff, and `describe`
-warns when you link one. The PR title goes in front matter:
+the worktree is one `git add -A` away from being committed into the branch,
+and `describe` warns when you link one. The PR title goes in front matter:
 
 ```markdown
 ---

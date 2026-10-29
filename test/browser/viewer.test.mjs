@@ -109,13 +109,15 @@ test("with ?perf, a load reports its requests' server and git time, and its rend
   assert.ok(load.totalMs > 0);
 });
 
-test("an edit in the working tree shows up without a reload", options, async () => {
+test("a commit shows up without a reload, and an uncommitted edit never does", options, async () => {
   const { repo, page } = await openViewer();
   await page.waitFor(() => document.querySelector("#live").dataset.state === "on", { what: "live reload to connect" });
+  const added = () =>
+    page.eval(() => [...document.querySelector(".file-diff > *").shadowRoot.querySelectorAll('[data-line-type="change-addition"]')].map((el) => el.textContent).join("\n"));
   repo.write("src/app.js", "const a = 1;\nconst b = 4;\n");
-  await page.waitFor(() => document.querySelector("#branch-head").textContent.includes("uncommitted"), { timeout: 10000, what: "the uncommitted edit" });
-  const added = await page.eval(() =>
-    [...document.querySelector(".file-diff > *").shadowRoot.querySelectorAll('[data-line-type="change-addition"]')].map((el) => el.textContent),
-  );
-  assert.ok(added.some((text) => text.includes("const b = 4;")), JSON.stringify(added));
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  assert.match(await added(), /const b = 3;/, "the edit on disk does not show");
+  repo.commit("four");
+  await page.waitFor(() => document.querySelector(".file-diff > *")?.shadowRoot?.textContent.includes("const b = 4;"), { timeout: 10000, what: "the commit" });
+  assert.match(await added(), /const b = 4;/);
 });
