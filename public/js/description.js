@@ -24,12 +24,17 @@ export function renderDescription() {
   if (!d) {
     box.classList.add("empty");
     box.innerHTML = state.overview
-      ? `<p class="faint">No stack description yet. The agent writing this stack adds one with <code>diffview describe --stack</code>: what the stack is for and how its branches fit together.</p>`
-      : `<p class="faint">No description yet. The agent writing this branch adds one with <code>diffview describe</code>; it becomes the PR's body.</p>`;
+      ? `<p class="faint">No stack description yet. The agent writing this stack links a Markdown file with <code>diffview describe --stack &lt;file&gt;</code>: what the stack is for and how its branches fit together.</p>`
+      : `<p class="faint">No description yet. The agent writing this branch links a Markdown file with <code>diffview describe &lt;file&gt;</code>; it becomes the PR's body.</p>`;
+    return;
+  }
+  if (d.missing) {
+    box.classList.add("empty");
+    box.innerHTML = `<p class="faint">The description file is missing: <code>${escapeHtml(d.shownPath)}</code> (${escapeHtml(d.reason)}). Restore it, or link another with <code>diffview describe</code>.</p>`;
     return;
   }
   box.classList.remove("empty");
-  const meta = `<p class="description-meta faint">Description v${d.seq} · ${escapeHtml(d.author)}${d.authorKind === "agent" ? " (agent)" : ""} · ${new Date(d.createdAt).toLocaleString()}</p>`;
+  const meta = `<p class="description-meta faint" title="${escapeHtml(d.path)}"><code>${escapeHtml(d.shownPath)}</code> · edited ${new Date(d.editedAt).toLocaleString()}</p>`;
   box.innerHTML = `${d.title ? `<h2 class="description-title">${escapeHtml(d.title)}</h2>` : ""}${meta}<div class="description-body" id="description-body">${d.html}</div>`;
 }
 

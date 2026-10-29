@@ -49,7 +49,8 @@ async function loadDescription() {
     return;
   }
   const { description } = await getJson(`/api/description?${new URLSearchParams({ branch: state.branch })}`);
-  if (description?.sha256 === state.description?.sha256 && $("#description").innerHTML) return;
+  const shownAs = (d) => (d ? (d.sha256 ?? `missing:${d.path}`) : null);
+  if (shownAs(description) === shownAs(state.description) && $("#description").innerHTML) return;
   state.description = description;
   renderDescription();
 }

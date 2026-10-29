@@ -5,6 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { DIFF_ARGS } from "../lib/diff.mjs";
+import { normalizeDescription } from "../lib/descriptions.mjs";
 import { openStore, STACK_SNAPSHOT } from "../lib/store.mjs";
 import { makeRepo } from "./helpers/repo.mjs";
 
@@ -173,50 +174,64 @@ test("only a human deletes, and a review's last thread takes its versions along"
 
 const DESC_V1 = "## Why\n\nThe store keeps every version.\n\n## How\n\n- Add a table.\n- Rebuild threads.\n";
 
-test("a description keeps a version per change, and identical writes add none", async () => {
+/** Writes a description file in a folder of its own and returns its path. */
+function descriptionFile(text, name = "description.md") {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "diffview-desc-")), name);
+  fs.writeFileSync(file, text);
+  return file;
+}
+
+test("a description is the linked file, read as it is now, with its title from front matter", async () => {
   const store = await freshStore();
   assert.equal(store.description(REPO, ENTRY), null);
-  const v1 = store.setDescription(REPO, ENTRY, { title: "Store descriptions", body: DESC_V1 }, AGENT);
-  assert.deepEqual([v1.seq, v1.title, v1.authorKind], [1, "Store descriptions", "agent"]);
-  assert.equal(store.setDescription(REPO, ENTRY, { title: "Store descriptions", body: `${DESC_V1}\n\n` }, AGENT).seq, 1);
-  store.setDescription(REPO, ENTRY, { title: "Store descriptions", body: DESC_V1.replace("Add a table", "Add two tables") }, AGENT);
-  assert.deepEqual([store.description(REPO, ENTRY).seq, store.description(REPO, ENTRY, { seq: 1 }).body], [2, DESC_V1]);
-  assert.throws(() => store.setDescription(REPO, ENTRY, { body: "  " }, AGENT), /needs text/);
+  const file = descriptionFile(`---\ntitle: Store descriptions\nowner: ignored\n---\n${DESC_V1}`);
+  const linked = store.linkDescription(REPO, ENTRY, file, AGENT);
+  assert.deepEqual([linked.path, linked.title, linked.body, linked.linkedBy], [file, "Store descriptions", DESC_V1, "agent"]);
+  fs.writeFileSync(file, DESC_V1.replace("Add a table", "Add two tables"));
+  assert.deepEqual([store.description(REPO, ENTRY).title, store.description(REPO, ENTRY).body.includes("two tables")], [null, true]);
+  fs.rmSync(file);
+  assert.deepEqual([store.description(REPO, ENTRY).missing, store.description(REPO, ENTRY).reason], [true, "no file there"]);
+  const other = descriptionFile("Another file.\n");
+  assert.equal(store.linkDescription(REPO, ENTRY, other, AGENT).body, "Another file.\n");
 });
 
-test("a comment on a description follows its block, and goes outdated with a guess when the block changes", async () => {
+test("a comment on a description keeps the text it was made on, and follows its block through edits to the file", async () => {
   const store = await freshStore();
-  const v1 = store.setDescription(REPO, ENTRY, { body: DESC_V1 }, AGENT);
-  const id = store.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: v1.sha256, quote: "Rebuild threads", body: "Why rebuild?", author: HUMAN });
+  const file = descriptionFile(DESC_V1);
+  const { sha256 } = store.linkDescription(REPO, ENTRY, file, AGENT);
+  const id = store.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: sha256, quote: "Rebuild threads", body: "Why rebuild?", author: HUMAN });
   let t = store.thread(id).thread;
-  assert.deepEqual([t.kind, t.state, t.heading, t.blockText, t.start], ["description", "current", "How", "- Rebuild threads.", 0]);
-  store.setDescription(REPO, ENTRY, { body: `Intro paragraph.\n\n${DESC_V1}` }, AGENT);
+  assert.deepEqual([t.kind, t.state, t.heading, t.blockText, t.start, t.madeOn.seq], ["description", "current", "How", "- Rebuild threads.", 0, 1]);
+  fs.writeFileSync(file, `Intro paragraph.\n\n${DESC_V1}`);
   t = store.thread(id).thread;
   assert.deepEqual([t.state, t.madeOn.seq], ["carried", 1]);
-  store.setDescription(REPO, ENTRY, { body: DESC_V1.replace("Rebuild threads.", "Rebuild the threads table.") }, AGENT);
+  fs.writeFileSync(file, DESC_V1.replace("Rebuild threads.", "Rebuild the threads table."));
   t = store.thread(id).thread;
   assert.deepEqual([t.state, t.blockText, t.nowReads?.text], ["outdated", "- Rebuild threads.", "- Rebuild the threads table."]);
+  assert.equal(store.thread(id).descriptionPath, file);
+  const withIntro = normalizeDescription({ title: null, body: `Intro paragraph.\n\n${DESC_V1}` }).sha256;
   assert.throws(
-    () => store.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: "nope", quote: "x", body: "x", author: HUMAN }),
-    /not stored/,
+    () => store.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: withIntro, quote: "Add a table", body: "x", author: HUMAN }),
+    /changed since you opened it/,
+    "a page showing text the file no longer holds, and no comment kept, is stale",
   );
+  store.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: sha256, quote: "Add a table", body: "x", author: HUMAN });
 });
 
 test("a stack description is found through any of its branches, as the stack grows on top and merges from the bottom", async () => {
   const store = await freshStore();
+  const file = descriptionFile("---\ntitle: Auth rework\n---\nWhy the stack.\n");
   assert.equal(store.stackEntry(REPO, ["feat/a", "feat/b"]), null);
-  const v1 = store.setStackDescription(REPO, ["feat/a", "feat/b"], { title: "Auth rework", body: "Why the stack." }, AGENT);
-  assert.deepEqual([v1.entry, v1.seq, v1.title], ["stack:feat/a", 1, "Auth rework"]);
+  const linked = store.linkStackDescription(REPO, ["feat/a", "feat/b"], file, AGENT);
+  assert.deepEqual([linked.entry, linked.title], ["stack:feat/a", "Auth rework"]);
   assert.equal(store.stackEntry(REPO, ["feat/b"]), "stack:feat/a");
 
-  const grown = store.setStackDescription(REPO, ["feat/a", "feat/b", "feat/c"], { body: "Why the stack, now with c." }, AGENT);
-  assert.deepEqual([grown.entry, grown.seq], ["stack:feat/a", 2]);
-  store.setStackDescription(REPO, ["feat/b", "feat/c"], { body: "feat/a merged." }, AGENT);
+  assert.equal(store.linkStackDescription(REPO, ["feat/a", "feat/b", "feat/c"], file, AGENT).entry, "stack:feat/a");
+  store.linkStackDescription(REPO, ["feat/b", "feat/c"], file, AGENT);
   assert.equal(store.stackEntry(REPO, ["feat/b", "feat/c"]), "stack:feat/a");
   assert.equal(store.stackEntry(REPO, ["feat/a"]), null, "a merged branch leaves the stack's members");
-  assert.equal(store.description(REPO, "stack:feat/a").seq, 3);
 
-  const reused = store.setStackDescription(REPO, ["feat/a", "feat/z"], { body: "A new stack whose bottom reuses a merged name." }, AGENT);
+  const reused = store.linkStackDescription(REPO, ["feat/a", "feat/z"], descriptionFile("A new stack whose bottom reuses a merged name.\n"), AGENT);
   assert.equal(reused.entry, "stack:feat/a~2");
   assert.equal(store.stackEntry(REPO, ["feat/a", "feat/z"]), "stack:feat/a~2");
   assert.equal(store.stackEntry(REPO, ["feat/c"]), "stack:feat/a");
@@ -224,7 +239,7 @@ test("a stack description is found through any of its branches, as the stack gro
 
 test("a thread on a stack's description sits on its empty diff, and the whole stack takes comments", async () => {
   const store = await freshStore();
-  const { entry, sha256 } = store.setStackDescription(REPO, ["feat/a", "feat/b"], { body: "## Why\n\nShip auth in pieces.\n" }, AGENT);
+  const { entry, sha256 } = store.linkStackDescription(REPO, ["feat/a", "feat/b"], descriptionFile("## Why\n\nShip auth in pieces.\n"), AGENT);
   const onText = store.createThread({ repo: REPO, entry, snapshot: STACK_SNAPSHOT, kind: "description", descriptionSha: sha256, quote: "in pieces", body: "How many?", author: HUMAN });
   const onStack = store.createThread({ repo: REPO, entry, snapshot: STACK_SNAPSHOT, kind: "branch", body: "Ship it.", author: HUMAN });
   const { threads } = store.threadsAt(REPO, entry);
@@ -258,8 +273,34 @@ test("a version 2 store gains description threads, keeping its threads, after a 
   const store = await openStore(home);
   assert.equal(store.thread(1).thread.messages[0].body, "kept?");
   assert.equal(fs.readdirSync(path.join(home, "backups")).length, 1);
-  const v1 = store.setDescription(REPO, ENTRY, { body: DESC_V1 }, AGENT);
-  store.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: v1.sha256, quote: "Add a table", body: "ok", author: HUMAN });
+  const { sha256 } = store.linkDescription(REPO, ENTRY, descriptionFile(DESC_V1), AGENT);
+  store.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: sha256, quote: "Add a table", body: "ok", author: HUMAN });
+});
+
+test("a version 3 store moves its descriptions into files and links them, and comments on them stay put", async () => {
+  const home = tempHome();
+  const before = await openStore(home);
+  const { sha256 } = before.linkDescription(REPO, ENTRY, descriptionFile(DESC_V1), AGENT);
+  const id = before.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: sha256, quote: "Add a table", body: "ok", author: HUMAN });
+  before.close();
+  // What a version 3 store held: descriptions as rows, and no links.
+  const { DatabaseSync } = await import("node:sqlite");
+  const old = new DatabaseSync(path.join(home, "diffview.sqlite3"));
+  old.exec(`UPDATE descriptions SET title = 'Store descriptions', sha256 = '${normalizeDescription({ title: "Store descriptions", body: DESC_V1 }).sha256}';
+    INSERT INTO descriptions (repo, entry, seq, title, body, sha256, author, author_kind, created_at)
+      VALUES ('${REPO}', 'stack:${ENTRY}', 1, NULL, 'The stack.', 'x', 'agent', 'agent', 'x');
+    DELETE FROM description_links;
+    PRAGMA user_version = 3;`);
+  old.close();
+
+  const store = await openStore(home);
+  const exported = path.join(home, "descriptions", "demo", "branches", "feat", "a.md");
+  assert.equal(fs.readFileSync(exported, "utf8"), `---\ntitle: Store descriptions\n---\n\n${DESC_V1}`);
+  assert.equal(store.description(REPO, ENTRY).path, exported);
+  assert.equal(store.description(REPO, `stack:${ENTRY}`).path, path.join(home, "descriptions", "demo", "stacks", "feat", "a.md"));
+  assert.equal(store.thread(id).thread.state, "current", "the exported file reads as the snapshot the comment was made on");
+  store.close();
+  assert.equal((await openStore(home)).description(REPO, ENTRY).path, exported, "a second open exports nothing again");
 });
 
 test("the change token moves on writes from any process, and not on reads", async () => {

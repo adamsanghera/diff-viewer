@@ -57,15 +57,17 @@ A comment follows its lines' text, not their numbers, so a rebase that moves the
 
 ### Descriptions
 
-Each branch can carry a description: Markdown, usually written by the agent that built the branch, shown above its diff. Select text in it and click **Comment** to leave a thread on that passage; it follows its paragraph through rewrites the way comments follow lines. The description is meant to become the PR:
+Each branch can carry a description: a Markdown file, usually kept by the agent that built the branch, shown above its diff. As with mdview, the file stays the author's: diffview remembers only where it is, reloads the page when it changes, and keeps a copy of whatever text someone commented on. Select text in it and click **Comment** to leave a thread on that passage; it follows its paragraph through edits the way comments follow lines. The PR title goes in front matter (`title: ...` between `---` lines), and the description is meant to become the PR:
 
 ```bash
-diffview describe --title "Share compute()" --stdin < why-and-how.md   # writes a new version
-diffview describe                                                      # prints it, with its version
+diffview describe .adam/feature/why-and-how.md   # links the file as the checked-out branch's description
+diffview describe                                # prints it as the file reads now
 gh pr create --title "$(diffview describe --print-title)" --body "$(diffview describe --print)"
 ```
 
-The stack can carry one too, written with `diffview describe --stack` from any of its branches: what the stack is for and how its branches fit. The sidebar's **Overview** row shows it above every branch's title, first paragraph and size, and it takes comments like a branch's description. It belongs to the branches it was written for, so it stays with the stack as branches are added on top or merge from the bottom. No stacking tool has a place for it in a PR, so `--print` hands it to whatever does.
+Keep description files outside the worktree or in a gitignored folder: an untracked file in the worktree shows up in the checked-out branch's diff, and `describe` warns when you link one.
+
+The stack can carry one too, linked with `diffview describe --stack <file>` from any of its branches: what the stack is for and how its branches fit. The sidebar's **Overview** row shows it above every branch's title, first paragraph and size, and it takes comments like a branch's description. It belongs to the branches it was linked for, so it stays with the stack as branches are added on top or merge from the bottom. No stacking tool has a place for it in a PR, so `--print` hands it to whatever does.
 
 Mark a file **Viewed** to collapse it. When its diff changes, the mark clears and it shows **Changed since viewed**.
 

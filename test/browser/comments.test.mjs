@@ -14,6 +14,13 @@ const servers = [];
 after(() => Promise.all(servers.map(({ server }) => new Promise((resolve) => server.close(resolve)))));
 const options = { skip: chromeMissing };
 
+/** Writes a description file outside any repo and returns its path. */
+function descriptionFile(text) {
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "diffview-desc-")), "description.md");
+  fs.writeFileSync(file, text);
+  return file;
+}
+
 const lines = (n, edit = {}) => Array.from({ length: n }, (_, i) => edit[i] ?? `const v${i} = ${i};`).join("\n") + "\n";
 
 /** feat/a <- feat/b, where b changes line 11 of app.js and adds util.js; the viewer has a store of its own. */
@@ -172,7 +179,8 @@ test("the agent's description shows above the diff, and selected text in it take
   assert.match(await page.eval(() => document.querySelector("#description").innerText), /No description yet/);
   const agent = await openStore(home);
   const body = "## Why\n\nCallers repeat the doubling logic.\n\n## How\n\n- Add `compute()` in util.js.\n";
-  agent.setDescription(started.repo.commonDir, "feat/b", { title: "Share compute()", body }, { name: "agent", kind: "agent" });
+  const file = descriptionFile(`---\ntitle: Share compute()\n---\n${body}`);
+  agent.linkDescription(started.repo.commonDir, "feat/b", file, { name: "agent", kind: "agent" });
   await page.waitFor(() => document.querySelector(".description-title")?.textContent === "Share compute()", { what: "the description to arrive live" });
 
   await page.eval(() => {
@@ -200,9 +208,9 @@ test("the agent's description shows above the diff, and selected text in it take
 
   const [{ id }] = await page.eval(railCards);
   assert.equal(agent.thread(id).thread.quote, "repeat the doubling");
-  agent.setDescription(started.repo.commonDir, "feat/b", { title: "Share compute()", body: body.replace("Callers repeat the doubling logic.", "Two callers repeat the doubling logic.") }, { name: "agent", kind: "agent" });
   agent.close();
-  await page.waitFor(() => document.querySelector(".description-meta")?.textContent.includes("v2"), { what: "description v2" });
+  fs.writeFileSync(file, `---\ntitle: Share compute()\n---\n${body.replace("Callers repeat the doubling logic.", "Two callers repeat the doubling logic.")}`);
+  await page.waitFor(() => document.querySelector("#description-body")?.textContent.includes("Two callers"), { what: "the edited file to reach the page" });
   await page.waitFor(() => !document.documentElement.classList.contains("rail-docked"), { what: "the outdated thread to leave the margin" });
   assert.equal(await page.eval(() => CSS.highlights.get("dv-description-open")?.size ?? 0), 0);
 });
@@ -212,7 +220,7 @@ test("the overview shows the stack's description and its branches, and its text 
   const repo = started.repo.commonDir;
   const agent = await openStore(home);
   const AGENT = { name: "agent", kind: "agent" };
-  agent.setDescription(repo, "feat/a", { title: "Thirty lines", body: "Lines for `compute()` to change.\n\n## More\n\nNot in the summary.\n" }, AGENT);
+  agent.linkDescription(repo, "feat/a", descriptionFile("---\ntitle: Thirty lines\n---\nLines for `compute()` to change.\n\n## More\n\nNot in the summary.\n"), AGENT);
 
   await page.eval(() => document.querySelector(".overview-row").click());
   await page.waitFor(() => document.querySelectorAll(".overview-branch").length === 2, { what: "the overview's branches" });
@@ -227,7 +235,7 @@ test("the overview shows the stack's description and its branches, and its text 
     "top branch first, as the sidebar lists them",
   );
 
-  agent.setStackDescription(repo, ["feat/a", "feat/b"], { title: "Double with compute()", body: "## Why\n\nTwo steps keep each review small.\n" }, AGENT);
+  agent.linkStackDescription(repo, ["feat/a", "feat/b"], descriptionFile("---\ntitle: Double with compute()\n---\n## Why\n\nTwo steps keep each review small.\n"), AGENT);
   await page.waitFor(() => document.querySelector(".description-title")?.textContent === "Double with compute()", { what: "the stack description to arrive live" });
   await page.eval(() => {
     const text = document.querySelector('#description-body [data-block="1"]').firstChild;
