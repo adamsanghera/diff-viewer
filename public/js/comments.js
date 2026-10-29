@@ -34,7 +34,7 @@ export const ROW_MARK_CSS = `
 code[data-unified] [data-selected-line],
 :host(:not([data-dv-select-side])) [data-selected-line],
 :host([data-dv-select-side="additions"]) code[data-additions] [data-selected-line],
-:host([data-dv-select-side="deletions"]) code[data-deletions] [data-selected-line] { --dv-over: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent) !important; }
+:host([data-dv-select-side="deletions"]) code[data-deletions] [data-selected-line] { --dv-over: var(--select-tint); box-shadow: inset 3px 0 0 var(--accent) !important; }
 :host([data-dv-select-side="additions"]) code[data-deletions],
 :host([data-dv-select-side="deletions"]) code[data-additions] { --diffs-selection-number-fg: var(--diffs-fg-number); }
 [data-dv-comment] { box-shadow: inset 3px 0 0 var(--dv-mark); cursor: pointer; }

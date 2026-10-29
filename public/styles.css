@@ -64,12 +64,17 @@
   --code-bg: rgba(0, 0, 53, 0.04);
 
   /* Diff rows, as Graphite colors them. */
-  --diff-added: rgb(208, 251, 221);
-  --diff-removed: rgb(255, 221, 228);
-  --diff-added-word: rgba(63, 162, 102, 0.3);
-  --diff-removed-word: rgba(184, 0, 73, 0.2);
-  --diff-added-number: rgb(0, 139, 82);
-  --diff-removed-number: rgb(184, 0, 73);
+  /* GitHub's diff colors: pale enough that syntax colors keep their contrast on them. */
+  --diff-added: rgb(230, 255, 236);
+  --diff-removed: rgb(255, 235, 233);
+  --diff-added-word: rgb(171, 242, 188);
+  --diff-removed-word: rgb(255, 206, 203);
+  --diff-added-gutter: rgb(204, 255, 216);
+  --diff-removed-gutter: rgb(255, 215, 213);
+  --diff-added-number: rgb(26, 127, 55);
+  --diff-removed-number: rgb(207, 34, 46);
+  /* Lines picked for a comment: light, so a picked changed line still reads as green or red. */
+  --select-tint: color-mix(in srgb, rgb(53, 101, 226) 7%, transparent);
 
   --text-2xs: 10px;
   --text-xs: 11px;
@@ -127,12 +132,15 @@
   --merged: rgb(171, 125, 248);
   --merged-soft: color-mix(in srgb, rgb(171, 125, 248) 18%, transparent);
   --code-bg: rgba(223, 223, 255, 0.06);
-  --diff-added: rgb(0, 50, 25);
-  --diff-removed: rgb(69, 17, 27);
-  --diff-added-word: rgba(63, 162, 102, 0.35);
-  --diff-removed-word: rgba(184, 0, 73, 0.35);
-  --diff-added-number: rgb(58, 154, 67);
-  --diff-removed-number: rgb(210, 83, 83);
+  --diff-added: rgba(46, 160, 67, 0.13);
+  --diff-removed: rgba(248, 81, 73, 0.1);
+  --diff-added-word: rgba(46, 160, 67, 0.26);
+  --diff-removed-word: rgba(248, 81, 73, 0.24);
+  --diff-added-gutter: rgba(63, 185, 80, 0.3);
+  --diff-removed-gutter: rgba(248, 81, 73, 0.3);
+  --diff-added-number: rgb(126, 231, 135);
+  --diff-removed-number: rgb(255, 161, 152);
+  --select-tint: color-mix(in srgb, rgb(53, 101, 226) 16%, transparent);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
