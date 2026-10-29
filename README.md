@@ -33,7 +33,7 @@ diffview --port 5000 --no-open   # first port to try, and no browser tab
 | `j` `k` | the next or previous file |
 | `s` | show or hide the stack |
 | `i` | threads in the margin, or inline under their lines |
-| `v` | mark the whole branch viewed, or clear it |
+| `v` | mark the whole branch viewed (its own mark, kept until the branch's code changes), or take the mark away |
 | `f` | show or hide the branch's files |
 | `/` | filter files |
 

@@ -26,6 +26,8 @@ export const state = {
     threads: [],
     pendingCount: 0,
     viewed: {},
+    /** The branch shown's own viewed mark, {branch, mark}: mark "viewed", "changed" or null. */
+    branchViewed: null,
     active: null,
     listMode: false,
     inline: localStorage.getItem("diffview.threads") === "inline",

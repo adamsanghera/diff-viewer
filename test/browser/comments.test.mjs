@@ -185,10 +185,18 @@ test("marking a file viewed collapses it, and a commit that changes it clears th
   assert.match(await page.eval(() => document.querySelector(".file-diff > *").querySelector(".viewed").textContent), /Changed since viewed/);
 });
 
-test("v marks the whole branch viewed, and the stack shows which branches are viewed or changed since", options, async () => {
+test("v marks the whole branch viewed, on purpose only, and the stack shows which branches are viewed or changed since", options, async () => {
   const { page, repo } = await openViewer();
   const row = (branch) => `.stack-row[data-branch="${branch}"]`;
   await page.waitFor(() => document.querySelector("[data-branch-viewed]")?.textContent === "Mark branch viewed", { what: "the branch's viewed toggle" });
+
+  await page.eval(() => {
+    for (const input of document.querySelectorAll(".file-diff > * .viewed input")) input.click();
+  });
+  await page.waitFor((sel) => document.querySelector(`${sel} .stack-size`)?.textContent.endsWith("· 2/2 files"), { what: "both files viewed, one by one" }, row("feat/b"));
+  assert.equal(await page.eval((sel) => document.querySelector(sel).classList.contains("stack-viewed"), row("feat/b")), false, "viewing every file is not marking the branch");
+  assert.equal(await page.eval(() => document.querySelector("[data-branch-viewed]").textContent), "Mark branch viewed");
+
   await page.eval(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "v", bubbles: true })));
   await page.waitFor(() => document.querySelector("[data-branch-viewed]")?.textContent === "✓ Branch viewed", { what: "the toggle to say viewed" });
   assert.equal(await page.eval(() => document.querySelectorAll("#tree .file-viewed").length), 2, "both files viewed");
@@ -200,12 +208,14 @@ test("v marks the whole branch viewed, and the stack shows which branches are vi
   await page.waitFor(() => document.querySelector("#live").dataset.state === "on");
   repo.commit("triple", { "src/util.js": "export const compute = (x) => x * 3;\n" });
   await page.waitFor((sel) => document.querySelector(`${sel} .stack-size`)?.textContent.endsWith("· ↻ changed"), { timeout: 10000, what: "the stack to show feat/b changed" }, row("feat/b"));
-  await page.waitFor(() => document.querySelector("[data-branch-viewed]")?.textContent === "Mark branch viewed", { what: "the toggle to offer marking it again" });
+  await page.waitFor(() => document.querySelector("[data-branch-viewed]")?.textContent === "↻ Changed since viewed", { what: "the toggle to say it changed" });
 
   await page.eval(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "v", bubbles: true })));
   await page.waitFor(() => document.querySelector("[data-branch-viewed]")?.textContent === "✓ Branch viewed", { what: "v to mark it viewed again" });
   await page.eval(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "v", bubbles: true })));
-  await page.waitFor(() => !document.querySelector("#tree .file-viewed"), { what: "v again to clear every mark" });
+  await page.waitFor(() => document.querySelector("[data-branch-viewed]")?.textContent === "Mark branch viewed", { what: "v again to take the branch's mark away" });
+  assert.equal(await page.eval(() => document.querySelectorAll("#tree .file-viewed").length), 2, "the files keep their marks");
+  await page.waitFor((sel) => document.querySelector(`${sel} .stack-size`)?.textContent.endsWith("· 2/2 files"), { what: "the stack to show only file progress" }, row("feat/b"));
   assert.deepEqual(page.errors, []);
 });
 

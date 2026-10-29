@@ -252,6 +252,7 @@ a.stack-row:hover { background: var(--hover); }
 .stack-row.stack-viewed .name { color: var(--text-soft); }
 .stack-row.stack-viewed:not(.active) .dot { border-color: var(--success); background: var(--success); }
 .btn-viewed.is-viewed { color: var(--success); }
+.btn-viewed.is-changed { color: var(--warning); }
 .stack-row .dot {
   position: relative;
   flex: none;
