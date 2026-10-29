@@ -182,9 +182,43 @@ test("API responses say how long their git commands and the whole request took",
   const repo = stackRepo();
   const { get } = await serve(repo);
   const timing = (await get("/api/diff?branch=a&stack=b")).headers.get("server-timing");
-  const [, gitMs, calls, totalMs] = /^git;dur=([\d.]+);desc="(\d+) git calls", total;dur=([\d.]+)$/.exec(timing) ?? [];
+  const [, gitMs, calls, totalMs] = /^git;dur=([\d.]+);desc="(\d+) git calls", total;dur=([\d.]+)/.exec(timing) ?? [];
   assert.ok(Number(calls) > 0 && Number(gitMs) > 0 && Number(totalMs) > 0, timing);
   assert.match((await get("/api/info")).headers.get("server-timing"), /git;dur=[\d.]+;desc="1 git call"/);
+});
+
+/** Fetches a route and returns its Server-Timing's diff-cache result and git call count. */
+async function cacheOf(url) {
+  const timing = (await fetch(url)).headers.get("server-timing");
+  return { cache: /diff-cache;desc="(\w+)"/.exec(timing)?.[1], gitCalls: Number(/(\d+) git call/.exec(timing)?.[1]) };
+}
+
+test("a diff between two commits is computed once", async () => {
+  const repo = stackRepo();
+  const { url } = await serve(repo);
+  const first = await cacheOf(`${url}api/diff?branch=a&stack=b`);
+  const second = await cacheOf(`${url}api/diff?branch=a&stack=b`);
+  assert.deepEqual([first.cache, second.cache], ["miss", "hit"]);
+  assert.ok(second.gitCalls < first.gitCalls, `${second.gitCalls} git calls after ${first.gitCalls}`);
+});
+
+test("the checked-out branch's diff is cached only while the watcher runs, and expires when a file changes", async () => {
+  const repo = stackRepo();
+  const { url, port } = await serve(repo);
+  const diff = `${url}api/diff?branch=b`;
+  assert.deepEqual([(await cacheOf(diff)).cache, (await cacheOf(diff)).cache], ["miss", "miss"], "no watcher, no cache");
+  const events = http.get({ host: "127.0.0.1", port, path: "/api/events" });
+  await new Promise((resolve) => events.on("response", resolve));
+  try {
+    assert.deepEqual([(await cacheOf(diff)).cache, (await cacheOf(diff)).cache], ["miss", "hit"]);
+    repo.write("a.txt", "one\ntwo\nthree\n");
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    assert.equal((await cacheOf(diff)).cache, "miss");
+    const { files } = await (await fetch(diff)).json();
+    assert.equal(files[0].additions, 2, "the parent has one line; the edit makes three");
+  } finally {
+    events.destroy();
+  }
 });
 
 test("fonts come from their packages, and /fonts/ serves nothing else", async () => {
