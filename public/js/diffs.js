@@ -98,6 +98,40 @@ export function renderFiles() {
   }
 }
 
+/* Collapsing files */
+
+// Whether each file is collapsed, by branch and path, as the person left it, so re-renders (live reload, layout, filters) keep it.
+const collapsedChoice = new Map();
+const choiceKey = (file) => `${state.branch}\0${file.path}`;
+
+/** Whether a file shows collapsed: as the person left it, else collapsed when viewed, generated, or too big to read in place. */
+function collapsedNow(file) {
+  return collapsedChoice.get(choiceKey(file)) ?? (viewedState(file) === "viewed" || startsCollapsed(file));
+}
+
+/** Collapses or expands a rendered file, and remembers it. */
+export function setCollapsed(item, collapsed) {
+  collapsedChoice.set(choiceKey(item.file), collapsed);
+  item.options = { ...item.options, collapsed };
+  item.view.setOptions(item.options);
+  item.view.rerender();
+}
+
+const CHEVRON = '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>';
+
+/** The chevron before a file's name that collapses and expands it. */
+function collapseToggle(item) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "collapse-toggle";
+  const collapsed = item.options.collapsed;
+  button.setAttribute("aria-expanded", String(!collapsed));
+  button.title = collapsed ? "Expand" : "Collapse";
+  button.innerHTML = CHEVRON;
+  button.addEventListener("click", () => setCollapsed(item, !item.options.collapsed));
+  return button;
+}
+
 function renderFileViews() {
   cleanUpViews();
   const container = $("#diffs");
@@ -124,7 +158,7 @@ function renderFileViews() {
       overflow: "wrap",
       lineDiffType: "word-alt",
       hunkSeparators: "line-info",
-      collapsed: viewedState(file) === "viewed" || startsCollapsed(file),
+      collapsed: collapsedNow(file),
       unsafeCSS: GRAPHITE_DIFF_CSS + ROW_MARK_CSS,
       enableLineSelection: state.comments.enabled,
       lineHoverHighlight: state.comments.enabled ? "both" : "disabled",
@@ -137,6 +171,7 @@ function renderFileViews() {
         scheduleLayout();
       },
       renderAnnotation,
+      renderHeaderPrefix: () => collapseToggle(item),
       renderHeaderMetadata: () => headerControls(item, openInCursor(file)),
     };
     item.view = new FileDiff(item.options);

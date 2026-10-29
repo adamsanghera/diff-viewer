@@ -16,7 +16,7 @@ import { commentHooks, composerOpen, initComments, loadComments, renderComments,
 import { renderDescription } from "./description.js";
 import { filters, resetFilters, setFilters } from "./filters.js";
 import { renderOverview } from "./overview.js";
-import { applyLayout, renderFiles, rerenderFiles, setLayout } from "./diffs.js";
+import { applyLayout, renderFiles, rerenderFiles, setCollapsed, setLayout } from "./diffs.js";
 import { escapeHtml } from "./lib/format.js";
 import { reportLoad } from "./perf.js";
 import { installShortcuts } from "./shortcuts.js";
@@ -228,6 +228,7 @@ async function main() {
   Object.assign(commentHooks, {
     renderFiles,
     rerenderFiles,
+    setCollapsed,
     renderTree,
     showVersion: (seq) => show(state.branch, { push: false, version: seq }),
     refreshAfterComposer: refresh,

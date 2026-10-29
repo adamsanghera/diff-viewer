@@ -46,7 +46,7 @@ code[data-unified] [data-selected-line],
 `;
 
 /** Set by main.js: re-renders the diffs, as when threads move between the rail and inline. */
-export const commentHooks = { renderFiles() {}, rerenderFiles() {}, showVersion() {}, refreshAfterComposer() {}, renderTree() {} };
+export const commentHooks = { renderFiles() {}, rerenderFiles() {}, setCollapsed() {}, showVersion() {}, refreshAfterComposer() {}, renderTree() {} };
 
 const batching = () => state.comments.pendingCount > 0;
 
@@ -466,16 +466,18 @@ export function viewedState(file) {
   return mark === file.sha ? "viewed" : "changed";
 }
 
+/**
+ * Marks a file viewed or not. Checking it collapses the file and
+ * unchecking expands it, once, at that moment; after that the person
+ * collapses and expands it as they like (the header's chevron).
+ */
 async function setViewed(item, viewed) {
   try {
     await postJson("/api/viewed", { branch: state.branch, path: item.file.path, fileSha: viewed ? item.file.sha : null });
     state.comments.viewed = { ...state.comments.viewed, [item.file.path]: viewed ? item.file.sha : undefined };
     if (!viewed) delete state.comments.viewed[item.file.path];
-    item.options = { ...item.options, collapsed: viewed };
-    item.view.setOptions(item.options);
-    item.view.rerender();
+    commentHooks.setCollapsed(item, viewed);
     commentHooks.renderTree();
-    renderBranchViewed();
     if (viewed) item.section.scrollIntoView({ block: "nearest" });
   } catch (err) {
     toast(err.message);
@@ -507,30 +509,17 @@ export function renderBranchViewed() {
       ? ["✓ Branch viewed", "Take the branch's viewed mark away; files keep theirs (v)"]
       : mark === "changed"
         ? ["↻ Changed since viewed", "The branch changed since you marked it viewed; mark it again (v)"]
-        : ["Mark branch viewed", "Mark the branch viewed, and every file in it, collapsing them until they change (v)"];
+        : ["Mark branch viewed", "Mark the branch viewed as a whole; its files keep their own marks (v)"];
   slot.innerHTML = `<button class="btn btn-viewed${mark === "viewed" ? " is-viewed" : mark === "changed" ? " is-changed" : ""}" type="button" data-branch-viewed title="${title}">${label}</button>`;
 }
 
-/** Marks the branch shown viewed, with every file in it; or, when it is marked, takes the branch's mark away. */
+/** Marks the branch shown viewed as a whole, or when it is marked, takes the mark away. Its files' marks stay as they are. */
 export async function toggleBranchViewed() {
   if (!state.comments.enabled || state.overview || !state.diff?.files.length) return;
-  const viewed = branchMark() !== "viewed";
   try {
-    const result = await postJson("/api/viewed/branch", { branch: state.branch, stack: state.stackOf, viewed });
-    state.comments.viewed = result.viewed;
+    const result = await postJson("/api/viewed/branch", { branch: state.branch, stack: state.stackOf, viewed: branchMark() !== "viewed" });
     state.comments.branchViewed = { branch: state.branch, mark: result.branchViewed };
-    if (!viewed) {
-      renderBranchViewed();
-      return;
-    }
-    for (const item of state.views) {
-      item.options = { ...item.options, collapsed: viewed };
-      item.view.setOptions(item.options);
-      item.view.rerender();
-    }
-    commentHooks.renderTree();
     renderBranchViewed();
-    if (viewed) scrollTo(0, 0);
   } catch (err) {
     toast(err.message);
   }

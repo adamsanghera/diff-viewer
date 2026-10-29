@@ -78,7 +78,7 @@ The stack can carry one too, linked with `diffview describe --stack <file>` from
 
 Tests and generated files start hidden and stay out of every count until you turn them on with the **Tests** and **Generated** toggles above the file list. Generated files are the ones `.gitattributes` marks `linguist-generated` or `linguist-vendored`, plus lockfiles, protobuf output, minified bundles and snapshots; tests are marked `diffview-test` or have test-shaped paths. Set an attribute to false (`-linguist-generated`) to override the guess. A file with an open comment always shows.
 
-Mark a file **Viewed** to collapse it. When its diff changes, the mark clears and it shows **Changed since viewed**.
+Checking a file's **Viewed** box collapses it, once; the chevron before its name expands or collapses it whenever you like, and it stays as you leave it. When its diff changes, the mark clears and it shows **Changed since viewed**. Marking a whole branch viewed (`v`) is separate: it marks no file and collapses nothing.
 
 Comments live in `~/.diffview/diffview.sqlite3` (set `DIFFVIEW_HOME` to move it), keyed by each repo's git common dir and branch name, so every worktree of a repo shares them. Deleting is permanent and only in the page. [`skills/diffview-comments/SKILL.md`](skills/diffview-comments/SKILL.md) teaches an agent this loop. Copy it into your agent's skills folder.
 

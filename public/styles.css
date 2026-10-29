@@ -520,6 +520,10 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 /* File headers: viewed, comment, open; and the file list's viewed marks */
 
 .file-controls { display: inline-flex; align-items: center; gap: 12px; font-size: var(--text-sm); }
+.collapse-toggle { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 2px; border-radius: var(--radius-xs); color: var(--text-soft); }
+.collapse-toggle:hover { background: var(--hover); color: var(--text); }
+.collapse-toggle .icon { width: 14px; height: 14px; transition: transform 0.12s; }
+.collapse-toggle[aria-expanded="false"] .icon { transform: rotate(-90deg); }
 .viewed { display: inline-flex; align-items: center; gap: 4px; color: var(--text-soft); cursor: pointer; }
 .viewed-changed { color: var(--warning); }
 .viewed-mark { color: var(--success); font-size: var(--text-xs); }
