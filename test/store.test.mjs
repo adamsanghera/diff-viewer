@@ -253,17 +253,17 @@ test("a thread on a stack's description sits on its empty diff, and the whole st
   assert.deepEqual(store.waitingOnAgent({ repo: REPO, entries: [entry] }), [onText, onStack]);
 });
 
-test("a branch's viewed mark is its own: set with its files, taken away without them", async () => {
+test("a branch's viewed mark and its files' marks are independent", async () => {
   const store = await freshStore();
   assert.equal(store.branchViewedOn(REPO, ENTRY), null);
   store.setViewed(REPO, ENTRY, "app.js", "file-sha");
   assert.equal(store.branchViewedOn(REPO, ENTRY), null, "viewing a file does not mark the branch");
-  store.setBranchViewed(REPO, ENTRY, { diffSha: "diff-1", files: [{ path: "app.js", sha: "file-sha-2" }, { path: "b.js", sha: "b-sha" }] });
+  store.setBranchViewed(REPO, ENTRY, "diff-1");
   assert.equal(store.branchViewedOn(REPO, ENTRY), "diff-1");
-  assert.deepEqual(store.viewed(REPO, ENTRY), { "app.js": "file-sha-2", "b.js": "b-sha" });
+  assert.deepEqual(store.viewed(REPO, ENTRY), { "app.js": "file-sha" }, "marking the branch marks no file");
   store.setBranchViewed(REPO, ENTRY, null);
   assert.equal(store.branchViewedOn(REPO, ENTRY), null);
-  assert.deepEqual(store.viewed(REPO, ENTRY), { "app.js": "file-sha-2", "b.js": "b-sha" }, "the files keep their marks");
+  assert.deepEqual(store.viewed(REPO, ENTRY), { "app.js": "file-sha" }, "the file keeps its mark");
 });
 
 test("a version 2 store gains description threads, keeping its threads, after a backup", async () => {
