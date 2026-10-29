@@ -75,6 +75,16 @@ test("Auto shows split diffs in a wide window and one column in a narrow one", o
   await page.waitFor(diffTypeIs, { what: "one column in a narrow window" }, "single");
 });
 
+test("with ?perf, a load reports its requests' server and git time, and its render time", options, async () => {
+  const { page } = await openViewer();
+  await page.goto(`${await page.eval(() => location.origin)}/view?perf`);
+  const load = await page.waitFor(() => globalThis.diffviewPerf?.loads[0], { what: "a load report" });
+  const diff = load.rows.find((r) => r.request === "/api/diff");
+  assert.ok(diff && diff.gitMs > 0 && diff.serverMs > 0, JSON.stringify(load.rows));
+  assert.ok(load.rows.some((r) => r.request === "render files"), JSON.stringify(load.rows));
+  assert.ok(load.totalMs > 0);
+});
+
 test("an edit in the working tree shows up without a reload", options, async () => {
   const { repo, page } = await openViewer();
   await page.waitFor(() => document.querySelector("#live").dataset.state === "on", { what: "live reload to connect" });
