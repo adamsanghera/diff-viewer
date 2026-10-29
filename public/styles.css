@@ -97,6 +97,8 @@
 
   --topbar: 48px;
   --sidebar-width: 300px;
+  /* The branch header and description: a line of prose about 100 characters long. */
+  --reading-width: 860px;
   --rail-width: 300px;
   --rail-gap: 16px;
   --font: InterVariable, Inter, system-ui, sans-serif;
@@ -177,6 +179,9 @@ a { color: var(--link); }
   background: var(--bg-chrome);
   border-bottom: var(--hairline) solid var(--border-strong);
 }
+/* What is shown on the left, controls on the right. */
+.topbar-info { display: flex; align-items: center; gap: 12px; min-width: 0; padding-left: 4px; }
+html:not(.no-stack) #toggle-stack, html:not(.no-files) #toggle-files { background: var(--bg-control); color: var(--text); }
 .crumbs { display: flex; gap: 6px; min-width: 0; font-size: var(--text-md); color: var(--text-faint); white-space: nowrap; }
 .crumbs span { overflow: hidden; text-overflow: ellipsis; }
 .crumbs .here { color: var(--text); font-weight: 600; }
@@ -290,7 +295,7 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 
 /* The stack's overview */
 
-.overview-branches { max-width: 820px; margin: 0; padding: 0; list-style: none; border: var(--hairline) solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg); }
+.overview-branches { max-width: var(--reading-width); margin: 0 auto; padding: 0; list-style: none; border: var(--hairline) solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg); }
 .overview-branch { padding: 12px 16px; }
 .overview-branch + .overview-branch { border-top: var(--hairline) solid var(--border); }
 .overview-branch-head { display: flex; align-items: center; gap: 8px; }
@@ -378,6 +383,7 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 .main { min-width: 0; padding: 20px 24px 80px; }
 .branch-head h1 { margin: 0 0 4px; font-size: 20px; line-height: 26px; font-weight: var(--weight-semibold); word-break: break-all; }
 .branch-head h1 a { font-weight: 400; text-decoration: none; }
+.branch-meta #branch-viewed { margin-left: auto; }
 .branch-meta { margin: 0 0 18px; color: var(--text-soft); font-size: var(--text-md); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .branch-meta strong { font: var(--weight-medium) var(--text-sm) var(--mono); color: var(--text); padding: 2px 6px; border-radius: var(--radius-sm); background: var(--bg-control); }
 .branch-meta .faint { font: var(--text-sm) var(--mono); }
@@ -403,8 +409,10 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 .rail-empty { font-size: var(--text-md); color: var(--text-faint); }
 
 .review-main { min-width: 0; }
-.branch-actions { margin: -8px 0 12px; font-size: var(--text-sm); }
-.branch-threads { display: grid; gap: 10px; max-width: 720px; margin-bottom: 16px; }
+/* The branch's header, description and whole-branch threads read as one column, centered when the pane is wider; the diffs take the full width. */
+.branch-head { max-width: var(--reading-width); margin: 0 auto; }
+.branch-actions { max-width: var(--reading-width); margin: -8px auto 12px; font-size: var(--text-sm); }
+.branch-threads { display: grid; gap: 10px; max-width: var(--reading-width); margin: 0 auto 16px; }
 .branch-threads:empty { display: none; }
 .inline-thread { padding: 8px 12px; max-width: 720px; font-family: var(--font); white-space: normal; }
 
@@ -547,7 +555,7 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 
 /* The branch's description: Markdown the agent writes, above the diff */
 
-.description { max-width: 820px; margin: 0 0 18px; padding: 14px 18px; border: var(--hairline) solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg); }
+.description { max-width: var(--reading-width); margin: 0 auto 18px; padding: 14px 18px; border: var(--hairline) solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg); }
 .description.empty { padding: 10px 14px; font-size: var(--text-md); }
 .description.empty code { font-family: var(--mono); font-size: var(--text-sm); }
 .description-title { margin: 0 0 2px; font-size: 16px; line-height: 22px; font-weight: var(--weight-semibold); }
