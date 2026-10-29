@@ -46,8 +46,8 @@ Click a line number to comment on that line (shift-click or drag for a range), o
 diffview comments list --waiting-on agent --full   # everything in this stack waiting on the agent, in full
 diffview comments show 12 15                       # threads in full, with the lines around them
 diffview comments reply 12 -m "Which helper should this use?"
-diffview comments suggest-resolve 12 -m "Moved it into compute()."
-echo '[{"reply": 12, "message": "..."}, {"suggestResolve": 15, "message": "..."}]' | diffview comments apply --stdin
+diffview comments suggest-resolve 12 --from why.md # long messages from a file you can edit first
+diffview comments apply --from actions.json        # [{"reply": 12, "message": "..."}, {"suggestResolve": 15, "message": "..."}]
 diffview comments wait                             # returns the moment anything here waits on the agent
 ```
 
