@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { startServer } from "../lib/server.mjs";
 import { openStore } from "../lib/store.mjs";
+import { until } from "./helpers/browser.mjs";
 import { makeRepo } from "./helpers/repo.mjs";
 
 /** main <- a <- b, with b checked out. */
@@ -193,32 +194,36 @@ async function cacheOf(url) {
   return { cache: /diff-cache;desc="(\w+)"/.exec(timing)?.[1], gitCalls: Number(/(\d+) git call/.exec(timing)?.[1]) };
 }
 
-test("a diff between two commits is computed once", async () => {
+test("the checked-out branch's stack and diffs are computed at start, before any page asks", async () => {
   const repo = stackRepo();
-  const { url } = await serve(repo);
-  const first = await cacheOf(`${url}api/diff?branch=a&stack=b`);
-  const second = await cacheOf(`${url}api/diff?branch=a&stack=b`);
-  assert.deepEqual([first.cache, second.cache], ["miss", "hit"]);
-  assert.ok(second.gitCalls < first.gitCalls, `${second.gitCalls} git calls after ${first.gitCalls}`);
+  const { url, warmed } = await serve(repo);
+  await warmed;
+  for (const diff of [`${url}api/diff?branch=b`, `${url}api/diff?branch=a&stack=b`]) {
+    assert.equal((await cacheOf(diff)).cache, "hit", diff);
+  }
 });
 
-test("the checked-out branch's diff is cached only while the watcher runs, and expires when a file changes", async () => {
+test("after a file changes, the checked-out branch's diff is computed again ahead of the page", async () => {
   const repo = stackRepo();
-  const { url, port } = await serve(repo);
+  const { url, warmed } = await serve(repo);
+  await warmed;
+  repo.write("a.txt", "one\ntwo\nthree\n");
   const diff = `${url}api/diff?branch=b`;
-  assert.deepEqual([(await cacheOf(diff)).cache, (await cacheOf(diff)).cache], ["miss", "miss"], "no watcher, no cache");
-  const events = http.get({ host: "127.0.0.1", port, path: "/api/events" });
-  await new Promise((resolve) => events.on("response", resolve));
-  try {
-    assert.deepEqual([(await cacheOf(diff)).cache, (await cacheOf(diff)).cache], ["miss", "hit"]);
-    repo.write("a.txt", "one\ntwo\nthree\n");
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    assert.equal((await cacheOf(diff)).cache, "miss");
-    const { files } = await (await fetch(diff)).json();
-    assert.equal(files[0].additions, 2, "the parent has one line; the edit makes three");
-  } finally {
-    events.destroy();
-  }
+  await until(async () => (await cacheOf(diff)).cache === "hit" && (await (await fetch(diff)).json()).files[0].additions === 2, {
+    what: "the edited diff, computed ahead",
+  });
+});
+
+test("requests that arrive while a diff is computed share that computation", async () => {
+  const repo = stackRepo();
+  repo.git("checkout", "-q", "-b", "elsewhere", "main");
+  repo.commit("elsewhere", { "e.txt": "e\n" });
+  repo.git("checkout", "-q", "b");
+  const { url, warmed } = await serve(repo);
+  await warmed;
+  const diff = `${url}api/diff?branch=elsewhere`;
+  const results = await Promise.all([cacheOf(diff), cacheOf(diff), cacheOf(diff)]);
+  assert.deepEqual(results.map((r) => r.cache).sort(), ["hit", "hit", "miss"]);
 });
 
 test("fonts come from their packages, and /fonts/ serves nothing else", async () => {
