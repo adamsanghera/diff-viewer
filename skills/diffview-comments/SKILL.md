@@ -1,6 +1,6 @@
 ---
 name: diffview-comments
-description: Read and answer comments a human left on a branch's diff or description in diffview, and write each branch's PR description, using the `diffview comments` and `diffview describe` CLIs. Use when asked to address, answer, or work through review comments or feedback on a branch, PR or stack reviewed locally, when authoring a stack the human reviews in diffview, when the user mentions diffview, or says "check my comments on <branch>".
+description: Hand a stack of branches to a human for review in diffview (start the viewer, give them its link), read and answer the comments they leave on a branch's diff or description, and write each branch's PR description, using the `diffview`, `diffview comments` and `diffview describe` CLIs. Use when a stack is ready for review, when asked to address, answer, or work through review comments or feedback on a branch, PR or stack reviewed locally, when authoring a stack the human reviews in diffview, when the user mentions diffview, or says "check my comments on <branch>".
 ---
 
 # diffview comments
@@ -16,6 +16,21 @@ Run it from inside the repo. Its scope is the stack of the branch checked
 out there, so it needs no arguments. `--branch <name>` narrows it to one
 branch (repeatable), `--repo` widens it to every commented branch, and
 `-C <path>` points at another checkout.
+
+## Handing a stack to review
+
+When a stack is ready for the human to review:
+
+1. Write each branch's description (see Descriptions below).
+2. From the repo, start the viewer in a background shell:
+   `diffview --no-open -b <top branch>`. It prints a link. When a viewer
+   already serves this checkout, it prints that viewer's link and exits, so
+   running it again is harmless.
+3. Give the human the link. It opens the whole stack; the sidebar moves
+   between branches.
+4. Wait for their comments with `diffview comments wait --timeout 4h` in
+   another background shell, and work through what it returns (the loop
+   below).
 
 ## The loop
 
