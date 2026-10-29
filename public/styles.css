@@ -258,19 +258,18 @@ html:not(.no-stack) #toggle-stack, html:not(.no-files) #toggle-files { backgroun
   text-decoration: none;
 }
 a.stack-row:hover { background: var(--hover); }
-.stack-row.active { background: var(--bg-control); color: var(--text); font-weight: var(--weight-semibold); }
-.stack-row.active .dot { color: var(--accent); }
+.stack-row.active { background: var(--bg-control); color: var(--text); }
 .stack-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stack-label { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 /* Its height is kept while the sizes load, so rows do not jump when they arrive. */
-.stack-size { min-height: 16px; font: var(--text-xs) / 16px var(--mono); font-weight: normal; color: var(--text-faint); }
+.stack-size { min-height: 16px; font: var(--text-xs) / 16px var(--mono); color: var(--text-faint); }
 .stack-viewed-mark { color: var(--success); }
 .stack-changed { color: var(--warning); }
 .stack-row.stack-viewed .name { color: var(--text-soft); }
-.stack-row.stack-viewed:not(.active) .dot { border-color: var(--success); background: var(--success); }
+.stack-row.stack-viewed .dot { border-color: var(--success); background: var(--success); }
 .badge-merged { background: var(--merged-soft); color: var(--merged); }
 h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
-.stack-row.stack-merged:not(.active) .dot { border-color: var(--merged); background: var(--merged); }
+.stack-row.stack-merged .dot { border-color: var(--merged); background: var(--merged); }
 .btn-viewed.is-viewed { color: var(--success); }
 .btn-viewed.is-changed { color: var(--warning); }
 .stack-row .dot {
@@ -283,7 +282,6 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
   /* Filled, so the line joining the stack does not show through a hollow dot. */
   background: var(--bg-sidebar);
 }
-.stack-row.active .dot { border-color: currentColor; background: currentColor; }
 .stack-row.trunk { color: var(--text-faint); }
 /* The line joining the stack's dots, from the top branch's dot down to trunk's. 3px centers it on the 8px dot. */
 .stack-row:has(.dot) { position: relative; }
