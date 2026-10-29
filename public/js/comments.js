@@ -15,7 +15,7 @@ import { stackCards } from "./lib/card-stack.js";
 import { anchorLabel, railHead, railList, threadCard } from "./lib/cards.js";
 import { renderedPaths } from "./filters.js";
 import { escapeHtml } from "./lib/format.js";
-import { keyHint, submitMode } from "./lib/keys.js";
+import { isSubmitKey, submitButton } from "./lib/keys.js";
 import { $, autosize, getJson, PIERRE_SIDE, postJson, root, SIDE_OF, state, toast } from "./state.js";
 
 const RAIL_GAP = 16;
@@ -48,7 +48,26 @@ code[data-unified] [data-selected-line],
 /** Set by main.js: re-renders the diffs, as when threads move between the rail and inline. */
 export const commentHooks = { renderFiles() {}, rerenderFiles() {}, setCollapsed() {}, showVersion() {}, refreshAfterComposer() {}, renderTree() {} };
 
-const batching = () => state.comments.pendingCount > 0;
+// Whether new comments and replies go into the batch: the sticky "Add to batch" checkbox.
+const batching = () => state.comments.batch;
+const BATCH_KEY = "diffview.batch";
+
+/** Sets the batch mode, keeps it for the next visit, and brings every submit button, its menu and the key hints up to date. */
+function setBatching(batch) {
+  state.comments.batch = batch;
+  localStorage.setItem(BATCH_KEY, batch ? "on" : "off");
+  for (const button of document.querySelectorAll("[data-submit]")) button.textContent = batch ? "Add to batch" : button.dataset.labelNow;
+  for (const choice of document.querySelectorAll("[data-batch-choice]")) choice.setAttribute("aria-checked", String((choice.dataset.batchChoice === "on") === batch));
+}
+
+/** Opens a submit button's menu, closing any other, or closes them all with null. */
+function openBatchMenu(chevron) {
+  for (const other of document.querySelectorAll("[data-batch-menu]")) {
+    const open = other === chevron && other.getAttribute("aria-expanded") !== "true";
+    other.setAttribute("aria-expanded", String(open));
+    other.parentElement.querySelector(".split-menu").hidden = !open;
+  }
+}
 
 /* Which threads show where */
 
@@ -305,20 +324,20 @@ function deactivate() {
 function openComposer(target, anchorEl) {
   const composer = $("#composer");
   state.comments.composer = target;
-  $("#composer-where").textContent =
+  // Not shown, since the composer opens beside what it comments on; screen readers announce it.
+  const where =
     target.kind === "branch"
       ? `Comment on ${state.overview ? "the whole stack" : state.branch}`
       : target.kind === "description"
         ? `Comment on the ${state.overview ? "stack " : ""}description: “${target.quote.length > 60 ? `${target.quote.slice(0, 59)}…` : target.quote}”`
         : `Comment on ${anchorLabel({ ...target, path: target.path })}`;
+  $("#composer-text").setAttribute("aria-label", where);
   $("#comment-btn").hidden = true;
   composer.hidden = false;
   const rect = anchorEl.getBoundingClientRect();
   composer.style.top = `${rect.bottom + scrollY + 6}px`;
   composer.style.left = `${Math.max(8, Math.min(rect.left, innerWidth - composer.offsetWidth - 8)) + scrollX}px`;
-  $("#composer-submit").textContent = batching() ? "Add to batch" : "Comment";
-  $("#composer-alt").textContent = batching() ? "Send just this" : "Start batch";
-  $("#composer-hint").textContent = keyHint(batching());
+  $("#composer-actions").innerHTML = submitButton(batching(), { now: "Comment", id: "composer-submit" });
   const input = $("#composer-text");
   autosize(input);
   input.focus({ preventScroll: true });
@@ -398,7 +417,8 @@ export function commentOnFile(item, button) {
   openComposer({ kind: "file", path: item.file.path, side: "new", item }, button);
 }
 
-async function submitComment(mode) {
+/** Starts the thread the composer holds: into the batch while "Add to batch" is checked, else sent at once. */
+async function submitComment() {
   const target = state.comments.composer;
   const input = $("#composer-text");
   const body = input.value.trim();
@@ -418,9 +438,8 @@ async function submitComment(mode) {
       quote: target.quote ?? "",
       start: target.start,
       body,
-      pending: mode === "batch" || mode === "send",
+      pending: batching(),
     });
-    if (mode === "send") await postJson("/api/comments/batch/send", {});
     closeComposer();
     state.comments.active = id;
     await loadComments();
@@ -432,13 +451,13 @@ async function submitComment(mode) {
 
 /* Thread actions */
 
-async function sendReply(input, mode) {
+/** Adds a reply: into the batch while "Add to batch" is checked, else sent at once. */
+async function sendReply(input) {
   const id = Number(input.closest(".thread").dataset.thread);
   const body = input.value.trim();
   if (!body) return;
   try {
-    await postJson(`/api/comments/${id}/messages`, { body, pending: mode === "batch" || mode === "send" });
-    if (mode === "send") await postJson("/api/comments/batch/send", {});
+    await postJson(`/api/comments/${id}/messages`, { body, pending: batching() });
     state.comments.replyText.delete(id);
     await loadComments();
   } catch (err) {
@@ -596,9 +615,9 @@ export function initComments() {
   const onReplyKey = (event) => {
     const input = event.target.closest("textarea.reply");
     if (!input) return;
-    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+    if (isSubmitKey(event)) {
       event.preventDefault();
-      sendReply(input, submitMode(event, batching()));
+      sendReply(input);
     } else if (event.key === "Escape") {
       input.blur();
       deactivate();
@@ -617,13 +636,30 @@ export function initComments() {
     container.addEventListener("input", onReplyInput);
   }
 
-  $("#composer-submit").addEventListener("click", () => submitComment(batching() ? "batch" : "now"));
-  $("#composer-alt").addEventListener("click", () => submitComment(batching() ? "now" : "batch"));
   $("#composer-cancel").addEventListener("click", () => closeComposer());
+  // Submit buttons and their batch menus, in the composer and in every card's reply box.
+  document.addEventListener("click", (event) => {
+    const submit = event.target.closest?.("[data-submit]");
+    const chevron = event.target.closest?.("[data-batch-menu]");
+    const choice = event.target.closest?.("[data-batch-choice]");
+    if (choice) {
+      setBatching(choice.dataset.batchChoice === "on");
+      openBatchMenu(null);
+    } else if (chevron) {
+      openBatchMenu(chevron);
+    } else {
+      openBatchMenu(null);
+    }
+    if (submit?.closest("#composer")) submitComment();
+    else if (submit) sendReply(submit.closest(".thread").querySelector("textarea.reply"));
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") openBatchMenu(null);
+  });
   $("#composer-text").addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+    if (isSubmitKey(event)) {
       event.preventDefault();
-      submitComment(submitMode(event, batching()));
+      submitComment();
     } else if (event.key === "Escape") {
       closeComposer();
     }

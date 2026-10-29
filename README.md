@@ -58,7 +58,7 @@ diffview comments apply --from actions.json        # [{"reply": 12, "message": "
 diffview comments wait --after 41                  # returns the moment anything newer than message 41 waits on the agent
 ```
 
-Agents reply and suggest that a thread is resolved. Only you resolve or reopen one, in the page, or with `--human` in a terminal. **Start batch** (or Alt+Enter) holds comments as pending, invisible to agents, until **Send**, so an agent wakes once. Live reload waits while you write a comment, so lines never move under it.
+Agents reply and suggest that a thread is resolved. Only you resolve or reopen one, in the page, or with `--human` in a terminal. In a comment or reply box, Enter starts a new line, and Shift+Enter (or ⌘Enter) submits. The button under it says what submitting will do: **Comment** sends at once, **Add to batch** holds it as pending, invisible to agents, until you press **Send batch** at the top right, so an agent wakes once. Its chevron switches between the two, and the choice sticks until you switch back. No key sends the batch. Live reload waits while you write a comment, so lines never move under it.
 
 A comment follows its lines' text, not their numbers, so a rebase that moves them keeps it in place. When the lines themselves change, as when an agent edits them, the thread goes outdated: it leaves the margin for the list (the speech-bubble button), says what the lines now read, and links to the version it was made on. The version chip (`v3`) lists every version of a branch's diff that comments were made on.
 
