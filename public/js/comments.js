@@ -369,6 +369,18 @@ export function markSelectionSide(item, range) {
   else delete host.dataset.dvSelectSide;
 }
 
+/**
+ * Whether lines start to end on `side` all lie in one of the patch's hunks.
+ * Only those lines can hold a comment (lib/anchors.mjs); lines expanded
+ * around the hunks cannot, and two hunks always have expanded lines between.
+ */
+function inOneHunk(fileDiff, side, start, end) {
+  return fileDiff.hunks.some((h) => {
+    const [first, count] = side === "new" ? [h.additionStart, h.additionCount] : [h.deletionStart, h.deletionCount];
+    return start >= first && end < first + count;
+  });
+}
+
 /** Pierre calls this when a line selection ends: {start, side, end, endSide}, sides "additions" or "deletions". */
 export function selectedLines(item, range) {
   if (!range || state.version?.old) return;
@@ -379,6 +391,11 @@ export function selectedLines(item, range) {
   }
   const side = SIDE_OF[range.side] ?? "new";
   const [startLine, endLine] = range.start <= range.end ? [range.start, range.end] : [range.end, range.start];
+  if (!inOneHunk(item.fileDiff, side, startLine, endLine)) {
+    toast("Comments go on the diff's own lines, not on expanded ones");
+    item.view.setSelectedLines(null);
+    return;
+  }
   const row = rowFor(item, side, endLine) ?? item.section;
   openComposer({ kind: "lines", path: item.file.path, side, startLine, endLine, item }, row);
 }

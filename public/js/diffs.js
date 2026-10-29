@@ -14,7 +14,7 @@ import {
 } from "./comments.js";
 import { hiddenSummary, rendered, renderedPaths } from "./filters.js";
 import { escapeHtml, startsCollapsed } from "./lib/format.js";
-import { $, root, state } from "./state.js";
+import { $, getJson, root, state } from "./state.js";
 
 const PIERRE_THEMES = { light: "pierre-light", dark: "pierre-dark" };
 // Under Auto, the narrowest diff pane that gets split diffs: each side then still shows about 60 columns of code.
@@ -78,6 +78,21 @@ function openInCursor(file) {
   return link;
 }
 
+/**
+ * Both sides of a changed file, for expanding its unmodified lines: the old
+ * side at the branch's base, the new at its head. Pierre calls it the first
+ * time someone expands one of the file's separators, and only then.
+ */
+async function loadBothSides(fileDiff, { base, head }) {
+  const at = async (rev, name) => {
+    const { contents } = await getJson(`/api/file?${new URLSearchParams({ rev, path: name })}`);
+    return { name, contents, cacheKey: `${rev}:${name}` };
+  };
+  if (fileDiff.type === "rename-pure") return { oldFile: null, newFile: await at(head, fileDiff.name) };
+  const [oldFile, newFile] = await Promise.all([at(base, fileDiff.prevName ?? fileDiff.name), at(head, fileDiff.name)]);
+  return { oldFile, newFile };
+}
+
 export function cleanUpViews() {
   for (const { view } of state.views) view.cleanUp();
   state.views = [];
@@ -139,6 +154,7 @@ function renderFileViews() {
   const container = $("#diffs");
   container.replaceChildren();
   const parsed = parsedByPath(state.diff.patch);
+  const { entry } = state.diff;
   state.renderedPaths = renderedPaths();
   state.diff.files.forEach((file, index) => {
     if (!rendered(file)) return;
@@ -160,6 +176,7 @@ function renderFileViews() {
       overflow: "wrap",
       lineDiffType: "word-alt",
       hunkSeparators: "line-info",
+      loadDiffFiles: (diff) => loadBothSides(diff, entry),
       collapsed: collapsedNow(file),
       unsafeCSS: GRAPHITE_DIFF_CSS + ROW_MARK_CSS,
       enableLineSelection: state.comments.enabled,

@@ -42,6 +42,17 @@ test("the stack and a branch's committed diff", async () => {
   assert.deepEqual(diff.body.files.map((f) => [f.path, f.status, f.additions]), [["a.txt", "added", 1]]);
 });
 
+test("a file's text at a commit, named only by its full hash", async () => {
+  const repo = stackRepo();
+  const { get } = await serve(repo);
+  const head = repo.git("rev-parse", "b").trim();
+  const file = (rev, path) => get(`/api/file?${new URLSearchParams({ rev, path })}`);
+  assert.deepEqual((await file(head, "a.txt")).body, { contents: "one\ntwo\n" });
+  assert.equal((await file("b", "a.txt")).status, 400, "a branch name is refused");
+  assert.equal((await file(head.slice(0, 8), "a.txt")).status, 400, "so is a short hash");
+  assert.equal((await file(head, "missing.txt")).status, 404);
+});
+
 test("the checked-out branch shows only commits: edits on disk, staged or not, and untracked files never show", async () => {
   const repo = stackRepo();
   const { get } = await serve(repo);

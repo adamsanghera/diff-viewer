@@ -80,6 +80,8 @@ Tests and generated files start hidden and stay out of every count until you tur
 
 Checking a file's **Viewed** box collapses it, once; the chevron before its name expands or collapses it whenever you like, and it stays as you leave it. When its diff changes, the mark clears and it shows **Changed since viewed**. Marking a whole branch viewed (`v`) is separate: it marks no file and collapses nothing.
 
+The bars between a file's hunks expand the unmodified lines around them. The file's two versions load the first time you expand one, not before. Comments go only on the diff's own lines, as on GitHub: those are what the branch changes, and what an agent reading the thread sees.
+
 Comments live in `~/.diffview/diffview.sqlite3` (set `DIFFVIEW_HOME` to move it), keyed by each repo's git common dir and branch name, so every worktree of a repo shares them. Deleting is permanent and only in the page. [`skills/diffview-comments/SKILL.md`](skills/diffview-comments/SKILL.md) teaches an agent this loop. Copy it into your agent's skills folder.
 
 ## Safety
