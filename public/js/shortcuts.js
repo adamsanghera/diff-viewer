@@ -1,8 +1,7 @@
 /** Keyboard shortcuts. `show` (main.js) moves to another branch, or with null to the overview. */
 import { toggleBranchViewed, toggleInline } from "./comments.js";
-import { cycleLayout } from "./diffs.js";
 import { stackRows } from "./lib/tree.js";
-import { hasOverview, toggleSidebar } from "./sidebar.js";
+import { hasOverview, toggleFilesPanel, toggleStackPanel } from "./sidebar.js";
 import { $, state } from "./state.js";
 
 function moveFile(step) {
@@ -21,8 +20,8 @@ export function installShortcuts({ show }) {
   };
   const actions = {
     "/": () => $("#filter").focus(),
-    f: toggleSidebar,
-    s: cycleLayout,
+    s: toggleStackPanel,
+    f: toggleFilesPanel,
     i: toggleInline,
     v: toggleBranchViewed,
     "[": () => moveBranch(-1),

@@ -69,14 +69,24 @@ test("clicking a branch shows its diff, and Unified switches to one column", opt
   assert.deepEqual(page.errors, []);
 });
 
-test("f shows and hides the sidebar", options, async () => {
+test("s shows and hides the stack and f the files, each on its own; with both hidden the sidebar goes", options, async () => {
   const { page } = await openViewer();
-  const hidden = () => document.documentElement.classList.contains("no-sidebar");
-  const pressF = () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "f", bubbles: true }));
-  await page.eval(pressF);
-  assert.equal(await page.eval(hidden), true);
-  await page.eval(pressF);
-  assert.equal(await page.eval(hidden), false);
+  const press = (key) => page.eval((k) => document.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true })), key);
+  const shown = () =>
+    page.eval(() => ["#stack-panel", "#files-panel", ".sidebar"].map((sel) => getComputedStyle(document.querySelector(sel)).display !== "none"));
+  const layout = () => page.eval(() => document.querySelector('[data-layout][aria-pressed="true"]').dataset.layout);
+  const before = await layout();
+  assert.deepEqual(await shown(), [true, true, true]);
+  await press("s");
+  assert.deepEqual(await shown(), [false, true, true]);
+  assert.equal(await layout(), before, "s no longer changes the diff layout");
+  await press("f");
+  assert.deepEqual(await shown(), [false, false, false]);
+  await press("s");
+  assert.deepEqual(await shown(), [true, false, true]);
+  assert.equal(await page.eval(() => localStorage.getItem("diffview.panel.files")), "hidden", "the choice is kept for the next visit");
+  await press("f");
+  assert.deepEqual(await shown(), [true, true, true]);
 });
 
 test("Auto shows split diffs in a wide window and one column in a narrow one", options, async () => {

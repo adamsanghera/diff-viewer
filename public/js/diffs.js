@@ -17,7 +17,6 @@ import { escapeHtml, startsCollapsed } from "./lib/format.js";
 import { $, root, state } from "./state.js";
 
 const PIERRE_THEMES = { light: "pierre-light", dark: "pierre-dark" };
-const LAYOUTS = ["auto", "split", "unified"];
 // Under Auto, the narrowest diff pane that gets split diffs: each side then still shows about 60 columns of code.
 const AUTO_SPLIT_MIN_WIDTH = 1000;
 
@@ -49,7 +48,7 @@ function effectiveLayout() {
 /** Re-renders the diffs if the style shown should change, as when the window, sidebar or rail resizes under Auto. */
 export function applyLayout() {
   const diffStyle = effectiveLayout();
-  $('[data-layout="auto"]').title = `Split when the window is wide enough, else one column; now ${diffStyle} (s)`;
+  $('[data-layout="auto"]').title = `Split when the window is wide enough, else one column; now ${diffStyle}`;
   if (diffStyle === state.diffStyle) return;
   state.diffStyle = diffStyle;
   for (const item of state.views) {
@@ -64,11 +63,6 @@ export function setLayout(layout) {
   localStorage.setItem("diffview.layout", layout);
   for (const button of document.querySelectorAll("[data-layout]")) button.setAttribute("aria-pressed", String(button.dataset.layout === layout));
   applyLayout();
-}
-
-/** `s`: Auto, then Split, then Unified. */
-export function cycleLayout() {
-  setLayout(LAYOUTS[(LAYOUTS.indexOf(state.layout) + 1) % LAYOUTS.length]);
 }
 
 /* Files */

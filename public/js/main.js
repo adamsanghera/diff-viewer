@@ -20,7 +20,7 @@ import { applyLayout, renderFiles, rerenderFiles, setLayout } from "./diffs.js";
 import { escapeHtml } from "./lib/format.js";
 import { reportLoad } from "./perf.js";
 import { installShortcuts } from "./shortcuts.js";
-import { renderStack, renderTree, toggleSidebar } from "./sidebar.js";
+import { renderStack, renderTree, toggleFilesPanel, toggleStackPanel } from "./sidebar.js";
 import { $, getJson, state, toast } from "./state.js";
 import { applyTheme, cycleTheme, PREFERS_DARK } from "./theme.js";
 
@@ -233,7 +233,8 @@ async function main() {
   installShortcuts({ show });
   $("#theme").addEventListener("click", cycleTheme);
   PREFERS_DARK.addEventListener("change", applyTheme);
-  $("#toggle-sidebar").addEventListener("click", toggleSidebar);
+  $("#toggle-stack").addEventListener("click", toggleStackPanel);
+  $("#toggle-files").addEventListener("click", toggleFilesPanel);
   for (const button of document.querySelectorAll("[data-layout]")) button.addEventListener("click", () => setLayout(button.dataset.layout));
   const followBranchLink = (event) => {
     const link = event.target.closest("a[data-branch], a[data-overview]");
