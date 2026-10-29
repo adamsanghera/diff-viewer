@@ -22,6 +22,7 @@ export function renderBranchHead() {
       ${uncommitted ? '<span class="badge badge-head" title="Includes edits not yet committed">uncommitted changes</span>' : ""}
     </p>`;
   $("#comment-branch").hidden = !state.comments.enabled;
+  $("#comment-branch").textContent = "Comment on the whole branch";
   $("#branch-name").textContent = entry.id;
   document.title = `${entry.id} · diffview`;
 }

@@ -29,7 +29,7 @@ diffview --port 5000 --no-open   # first port to try, and no browser tab
 
 | Key | Does |
 |---|---|
-| `[` `]` | the branch below or above in the stack |
+| `[` `]` | the branch below or above in the stack, with the Overview above the top |
 | `j` `k` | the next or previous file |
 | `s` | Auto, Split, or Unified: Auto splits when the pane is wide enough |
 | `i` | threads in the margin, or inline under their lines |
@@ -64,6 +64,8 @@ diffview describe --title "Share compute()" --stdin < why-and-how.md   # writes 
 diffview describe                                                      # prints it, with its version
 gh pr create --title "$(diffview describe --print-title)" --body "$(diffview describe --print)"
 ```
+
+The stack can carry one too, written with `diffview describe --stack` from any of its branches: what the stack is for and how its branches fit. The sidebar's **Overview** row shows it above every branch's title, first paragraph and size, and it takes comments like a branch's description. It belongs to the branches it was written for, so it stays with the stack as branches are added on top or merge from the bottom. No stacking tool has a place for it in a PR, so `--print` hands it to whatever does.
 
 Mark a file **Viewed** to collapse it. When its diff changes, the mark clears and it shows **Changed since viewed**.
 

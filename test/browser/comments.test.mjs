@@ -207,6 +207,54 @@ test("the agent's description shows above the diff, and selected text in it take
   assert.equal(await page.eval(() => CSS.highlights.get("dv-description-open")?.size ?? 0), 0);
 });
 
+test("the overview shows the stack's description and its branches, and its text takes comments", options, async () => {
+  const { page, home, started } = await openViewer();
+  const repo = started.repo.commonDir;
+  const agent = await openStore(home);
+  const AGENT = { name: "agent", kind: "agent" };
+  agent.setDescription(repo, "feat/a", { title: "Thirty lines", body: "Lines for `compute()` to change.\n\n## More\n\nNot in the summary.\n" }, AGENT);
+
+  await page.eval(() => document.querySelector(".overview-row").click());
+  await page.waitFor(() => document.querySelectorAll(".overview-branch").length === 2, { what: "the overview's branches" });
+  assert.match(await page.eval(() => location.search), /overview/);
+  assert.match(await page.eval(() => document.querySelector("#description").innerText), /No stack description yet/);
+  assert.deepEqual(
+    await page.eval(() => [...document.querySelectorAll(".overview-branch")].map((b) => [b.querySelector("a").textContent, b.querySelector(".overview-summary").innerHTML])),
+    [
+      ["feat/b", "No description yet."],
+      ["Thirty lines", "Lines for <code>compute()</code> to change."],
+    ],
+    "top branch first, as the sidebar lists them",
+  );
+
+  agent.setStackDescription(repo, ["feat/a", "feat/b"], { title: "Double with compute()", body: "## Why\n\nTwo steps keep each review small.\n" }, AGENT);
+  await page.waitFor(() => document.querySelector(".description-title")?.textContent === "Double with compute()", { what: "the stack description to arrive live" });
+  await page.eval(() => {
+    const text = document.querySelector('#description-body [data-block="1"]').firstChild;
+    const range = document.createRange();
+    range.setStart(text, text.data.indexOf("each review"));
+    range.setEnd(text, text.data.indexOf("each review") + "each review".length);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  });
+  await page.waitFor(() => !document.querySelector("#comment-btn").hidden, { what: "the Comment button" });
+  await page.eval(() => document.querySelector("#comment-btn").click());
+  await page.waitFor(() => !document.querySelector("#composer").hidden);
+  assert.match(await page.eval(() => document.querySelector("#composer-where").textContent), /the stack description: “each review”/);
+  await typeAndPress(page, "How small?");
+  await page.waitFor(() => document.querySelector("#rail .thread"), { what: "the card" });
+  const [{ id }] = await page.eval(railCards);
+  assert.deepEqual([agent.reviewOf(id).entry, agent.thread(id).thread.quote], ["stack:feat/a", "each review"]);
+  await page.waitFor(() => document.querySelector(".overview-row .badge-comments")?.textContent === "1", { what: "the overview row's comment badge" });
+  agent.close();
+
+  await page.eval(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "[", bubbles: true })));
+  await page.waitFor(() => document.querySelector(".file-diff"), { what: "[ to move to the top branch" });
+  assert.equal(await page.eval(() => document.querySelector("#branch-name").textContent), "feat/b");
+  assert.deepEqual(page.errors, []);
+});
+
 test("a comment survives an edit elsewhere in the file, and goes outdated when its line changes", options, async () => {
   const { page, repo } = await openViewer();
   await commentOnLine11(page);

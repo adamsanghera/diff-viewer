@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { branchDiff } from "../lib/branch-diff.mjs";
 import { openRepo } from "../lib/repo.mjs";
 import { loadStack } from "../lib/stack.mjs";
-import { openStore } from "../lib/store.mjs";
+import { openStore, STACK_SNAPSHOT } from "../lib/store.mjs";
 import { until } from "./helpers/browser.mjs";
 import { makeRepo } from "./helpers/repo.mjs";
 
@@ -204,6 +204,42 @@ test("a comment on the description shows in list and show with its paragraph", a
   const show = ctx.cli("show", String(id));
   assert.match(show.out, /In the description:\n {4}Add add\(\) so callers share it\./);
   assert.match(show.out, /To change it: diffview describe --branch feat\/b --stdin/);
+});
+
+test("describe --stack writes the stack's description, readable from any of its branches", () => {
+  const ctx = setup();
+  assert.match(describe(ctx, undefined, "--stack").err, /The stack of feat\/b has no description\. Write one with: diffview describe --stack/);
+  assert.match(describe(ctx, "Ship add() in two steps.\n", "--stack", "--stdin", "--title", "add()").out, /Description of the stack of feat\/b is v1/);
+  assert.match(describe(ctx, undefined, "--stack", "--branch", "feat/a").out, /^The stack of feat\/a · description v1 · spec-agent .*\n\n# add\(\)\n\nShip add\(\) in two steps\.\n$/);
+  assert.equal(describe(ctx, undefined, "--stack", "--print").out, "Ship add() in two steps.\n");
+  assert.equal(JSON.parse(describe(ctx, undefined, "--stack", "--json").out).entry, "stack:feat/a");
+  assert.equal(describe(ctx, undefined, "--print").status, 1, "the branch's own description is separate");
+});
+
+test("a comment on the stack's description shows in list and show, with how to change it", async () => {
+  const ctx = setup();
+  describe(ctx, "## Why\n\nShip add() in two steps.\n", "--stack", "--stdin");
+  const opened = await openRepo(ctx.repo.dir);
+  const store = await openStore(ctx.home);
+  const { sha256 } = store.description(opened.commonDir, "stack:feat/a");
+  const id = store.createThread({
+    repo: opened.commonDir,
+    entry: "stack:feat/a",
+    snapshot: STACK_SNAPSHOT,
+    kind: "description",
+    descriptionSha: sha256,
+    quote: "two steps",
+    body: "Why two?",
+    author: HUMAN,
+  });
+  store.close();
+  const list = ctx.cli("list").out;
+  assert.match(list, /^the stack · 1 open\n/m);
+  assert.match(list, new RegExp(`#${id} open · waiting on agent · the stack description under "Why"`));
+  const show = ctx.cli("show", String(id)).out;
+  assert.match(show, /· on the stack\n/);
+  assert.match(show, /To change it: diffview describe --stack --stdin < new-description\.md, from any branch in the stack\./);
+  assert.match(ctx.cli("suggest-resolve", String(id), "-m", "Explained in the Why.").out, /the stack description under "Why"/);
 });
 
 test("a second diffview on the same checkout prints the running viewer's link instead of starting another", async (t) => {

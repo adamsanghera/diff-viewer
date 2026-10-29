@@ -30,6 +30,18 @@ function commentBadge(counts) {
   return `<span class="badge badge-comments${turn}" title="${title}">${counts.unresolved}</span>`;
 }
 
+/** Whether the stack has an overview row: a stack of several branches, or one with a stack description. */
+export function hasOverview() {
+  return state.stack.entries.length > 1 || Boolean(state.stack.stackEntry);
+}
+
+function overviewRow() {
+  const active = state.overview ? " active" : "";
+  const href = `?${new URLSearchParams({ stack: state.stackOf, overview: "" })}`;
+  return `<li><a class="stack-row overview-row${active}" href="${href}" data-overview title="The stack's description and every branch in it">
+    <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10M3 8h10M3 12h6"/></svg><span class="name">Overview</span>${commentBadge(state.stack.comments?.[state.stack.stackEntry])}</a></li>`;
+}
+
 export function renderStack() {
   const { entries, trunk } = state.stack;
   const checkedOut = state.stack.checkedOut;
@@ -42,11 +54,12 @@ export function renderStack() {
       entry.needsRestack ? `<span class="badge badge-warn" title="Its base is no longer ${escapeHtml(entry.parent)}'s tip">restack</span>` : "",
       entry.pr ? `<span class="badge">#${entry.pr.number}</span>` : "",
     ].join("");
-    const active = entry.id === state.branch ? " active" : "";
+    const active = !state.overview && entry.id === state.branch ? " active" : "";
     return `<li><a class="stack-row${active}" href="?${new URLSearchParams({ branch: entry.id, stack: state.stackOf })}" data-branch="${escapeHtml(entry.id)}" style="--depth:${depth}" title="${escapeHtml(entry.id)} (from ${escapeHtml(entry.source)})">
       <span class="dot"></span><span class="name">${escapeHtml(entry.id.slice(prefix.length))}</span>${badges}</a></li>`;
   });
   rows.push(`<li><span class="stack-row trunk"><span class="dot"></span><span class="name">${escapeHtml(trunk ?? "trunk")}</span></span></li>`);
+  if (hasOverview()) rows.unshift(overviewRow());
   $("#stack").innerHTML = rows.join("");
 }
 
@@ -73,5 +86,6 @@ export function renderTree() {
     }
     return `<ul>${items.join("")}</ul>`;
   };
-  $("#tree").innerHTML = shown.length ? renderNode(buildTree(shown.map((f) => f.path))) : `<div class="tree-empty">${query ? "No matching files" : "No changes"}</div>`;
+  const empty = state.overview ? "Pick a branch to see its files" : query ? "No matching files" : "No changes";
+  $("#tree").innerHTML = shown.length ? renderNode(buildTree(shown.map((f) => f.path))) : `<div class="tree-empty">${empty}</div>`;
 }

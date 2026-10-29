@@ -1,8 +1,8 @@
-/** Keyboard shortcuts. `show` (main.js) moves to another branch. */
+/** Keyboard shortcuts. `show` (main.js) moves to another branch, or with null to the overview. */
 import { toggleInline } from "./comments.js";
 import { cycleLayout } from "./diffs.js";
 import { stackRows } from "./lib/tree.js";
-import { toggleSidebar } from "./sidebar.js";
+import { hasOverview, toggleSidebar } from "./sidebar.js";
 import { $, state } from "./state.js";
 
 function moveFile(step) {
@@ -13,10 +13,11 @@ function moveFile(step) {
 }
 
 export function installShortcuts({ show }) {
+  // Rows as the sidebar lists them, top first; null is the overview, above the top branch.
   const moveBranch = (step) => {
-    const rows = stackRows(state.stack.entries).map((r) => r.entry.id);
-    const next = rows[rows.indexOf(state.branch) - step];
-    if (next) show(next);
+    const rows = [...(hasOverview() ? [null] : []), ...stackRows(state.stack.entries).map((r) => r.entry.id)];
+    const next = rows[rows.indexOf(state.overview ? null : state.branch) - step];
+    if (next !== undefined) show(next);
   };
   const actions = {
     "/": () => $("#filter").focus(),
