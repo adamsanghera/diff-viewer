@@ -129,6 +129,7 @@ function renderFileViews() {
       collapsed: viewedState(file) === "viewed" || startsCollapsed(file),
       unsafeCSS: GRAPHITE_DIFF_CSS + ROW_MARK_CSS,
       enableLineSelection: state.comments.enabled,
+      lineHoverHighlight: state.comments.enabled ? "both" : "disabled",
       onLineSelectionEnd: (range) => selectedLines(item, range),
       onLineClick: (props) => clickedLine(item, props),
       onPostRender: () => {

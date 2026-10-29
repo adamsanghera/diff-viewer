@@ -25,12 +25,17 @@ const RAIL_WIDTH = 300;
 
 /** Styles that reach into Pierre's shadow roots: tints on commented rows. */
 export const ROW_MARK_CSS = `
-[data-dv-comment] { background-image: linear-gradient(var(--dv-tint), var(--dv-tint)); box-shadow: inset 3px 0 0 var(--dv-mark); cursor: pointer; }
+[data-dv-comment], [data-hovered], [data-selected-line] {
+  background-image: linear-gradient(var(--dv-over, transparent), var(--dv-over, transparent)), linear-gradient(var(--dv-tint, transparent), var(--dv-tint, transparent));
+}
+[data-hovered] { --dv-over: var(--hover); }
+[data-selected-line] { --dv-over: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent) !important; }
+[data-dv-comment] { box-shadow: inset 3px 0 0 var(--dv-mark); cursor: pointer; }
 [data-dv-comment="open"] { --dv-mark: rgb(240, 124, 0); --dv-tint: rgba(240, 124, 0, 0.12); --dv-tint-active: rgba(240, 124, 0, 0.26); }
 [data-dv-comment="turn"] { --dv-mark: rgb(53, 101, 226); --dv-tint: rgba(53, 101, 226, 0.1); --dv-tint-active: rgba(53, 101, 226, 0.24); }
 [data-dv-comment="suggested"] { --dv-mark: rgb(58, 154, 67); --dv-tint: rgba(58, 154, 67, 0.12); --dv-tint-active: rgba(58, 154, 67, 0.26); }
 [data-dv-comment="pending"] { --dv-mark: rgb(152, 152, 164); --dv-tint: rgba(152, 152, 164, 0.14); --dv-tint-active: rgba(152, 152, 164, 0.3); }
-[data-dv-active] { background-image: linear-gradient(var(--dv-tint-active), var(--dv-tint-active)); box-shadow: inset 4px 0 0 var(--dv-mark); }
+[data-dv-active] { --dv-tint: var(--dv-tint-active); box-shadow: inset 4px 0 0 var(--dv-mark); }
 `;
 
 /** Set by main.js: re-renders the diffs, as when threads move between the rail and inline. */

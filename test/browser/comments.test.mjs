@@ -74,6 +74,40 @@ test("clicking a line number and pressing Enter leaves a comment beside the line
   assert.deepEqual(page.errors, []);
 });
 
+test("the lines under the pointer, and the lines being selected, are tinted until the composer closes", options, async () => {
+  const { page } = await openViewer();
+  const centerOf = (n) =>
+    page.eval((line) => {
+      const shadow = document.querySelector(".file-diff > *").shadowRoot;
+      const r = (shadow.querySelector(`code[data-additions] [data-column-number="${line}"]`) ?? shadow.querySelector(`code[data-unified] [data-column-number="${line}"]`)).getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }, n);
+  const tinted = (attribute) =>
+    page.eval((attr) => {
+      const rows = [...document.querySelector(".file-diff > *").shadowRoot.querySelectorAll(`code[data-additions] [data-line][${attr}]`)];
+      return rows.map((row) => `${row.dataset.line}:${getComputedStyle(row).backgroundImage.startsWith("linear-gradient(rgba(0, 0, 0, 0)") ? "clear" : "tinted"}`);
+    }, attribute);
+
+  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...(await centerOf(13)) });
+  await page.waitFor(() => document.querySelector(".file-diff > *").shadowRoot.querySelector("[data-line][data-hovered]"), { what: "a hovered row" });
+  assert.deepEqual(await tinted("data-hovered"), ["13:tinted"]);
+
+  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...(await centerOf(9)) });
+  await page.send("Input.dispatchMouseEvent", { type: "mousePressed", ...(await centerOf(9)), button: "left", buttons: 1, clickCount: 1 });
+  await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", ...(await centerOf(11)), button: "left", buttons: 1 });
+  await page.waitFor(() => document.querySelector(".file-diff > *").shadowRoot.querySelectorAll("code[data-additions] [data-line][data-selected-line]").length === 3, {
+    what: "three rows selected mid-drag",
+  });
+  assert.deepEqual(await tinted("data-selected-line"), ["9:tinted", "10:tinted", "11:tinted"]);
+
+  await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...(await centerOf(11)), button: "left", clickCount: 1 });
+  await page.waitFor(() => !document.querySelector("#composer").hidden, { what: "the composer" });
+  assert.match(await page.eval(() => document.querySelector("#composer-where").textContent), /app\.js:9-11/);
+  assert.equal((await tinted("data-selected-line")).length, 3, "the selection stays while the composer is open");
+  await page.eval(() => document.querySelector("#composer-cancel").click());
+  assert.deepEqual(await tinted("data-selected-line"), []);
+});
+
 test("an agent's reply shows up live, and resolving clears the line", options, async () => {
   const { page, home } = await openViewer();
   await commentOnLine11(page);
