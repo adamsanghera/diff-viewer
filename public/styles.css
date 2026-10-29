@@ -246,7 +246,8 @@ html:not(.no-stack) #toggle-stack, html:not(.no-files) #toggle-files { backgroun
 
 /* Stack */
 
-.stack { list-style: none; margin: 0; padding: 0; }
+/* --dot-slot is as wide as the largest dot (DOT_MAX in sidebar.js); each dot centers in it, so names stay aligned. */
+.stack { --dot-slot: 16px; list-style: none; margin: 0; padding: 0; }
 .stack-row {
   display: flex;
   align-items: center;
@@ -275,22 +276,23 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 .stack-row .dot {
   position: relative;
   flex: none;
-  width: 8px;
-  height: 8px;
+  width: var(--dot, 8px);
+  height: var(--dot, 8px);
+  margin: 0 calc((var(--dot-slot) - var(--dot, 8px)) / 2);
   border-radius: 50%;
   border: 2px solid color-mix(in srgb, currentColor 70%, transparent);
   /* Filled, so the line joining the stack does not show through a hollow dot. */
   background: var(--bg-sidebar);
 }
 .stack-row.trunk { color: var(--text-faint); }
-/* The line joining the stack's dots, from the top branch's dot down to trunk's. 3px centers it on the 8px dot. */
+/* The line joining the stack's dots, from the top branch's dot down to trunk's, through the middle of the dot slot. */
 .stack-row:has(.dot) { position: relative; }
 .stack-row:has(.dot)::before {
   content: "";
   position: absolute;
   top: 0;
   bottom: 0;
-  left: calc(8px + var(--depth, 0) * 14px + 3px);
+  left: calc(8px + var(--depth, 0) * 14px + var(--dot-slot) / 2 - 1px);
   width: 2px;
   background: var(--border-strong);
 }
