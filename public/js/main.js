@@ -14,6 +14,7 @@ import { commentHooks, composerOpen, initComments, loadComments, renderComments,
 import { renderDescription } from "./description.js";
 import { applyLayout, renderFiles, rerenderFiles, setLayout } from "./diffs.js";
 import { escapeHtml } from "./lib/format.js";
+import { reportLoad } from "./perf.js";
 import { installShortcuts } from "./shortcuts.js";
 import { renderStack, renderTree, toggleSidebar } from "./sidebar.js";
 import { $, getJson, state, toast } from "./state.js";
@@ -71,6 +72,7 @@ async function loadDiff({ force = false } = {}) {
 }
 
 async function show(branch, { push = true, version = null } = {}) {
+  const started = performance.now();
   state.branch = branch;
   state.version = version === null ? null : { seq: version };
   state.comments.active = null;
@@ -82,6 +84,7 @@ async function show(branch, { push = true, version = null } = {}) {
     await Promise.all([loadDiff({ force: true }), loadDescription()]);
     await loadComments();
     scrollTo(0, 0);
+    reportLoad(`Showed ${branch}`, started);
   } catch (err) {
     toast(err.message);
   }
@@ -203,6 +206,7 @@ async function main() {
     await loadStack();
     await Promise.all([loadDiff({ force: true }), loadDescription()]);
     await loadComments();
+    reportLoad(`Loaded ${state.branch}`, 0);
   } catch (err) {
     $("#branch-head").innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;
   }

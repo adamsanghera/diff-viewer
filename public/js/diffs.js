@@ -92,7 +92,17 @@ function parsedByPath(patch) {
   return byPath;
 }
 
+/** Renders the branch's files, measured as "diffview:render-files" for ?perf and DevTools' Performance panel. */
 export function renderFiles() {
+  performance.mark("diffview:render-files-start");
+  try {
+    renderFileViews();
+  } finally {
+    performance.measure("diffview:render-files", "diffview:render-files-start");
+  }
+}
+
+function renderFileViews() {
   cleanUpViews();
   const container = $("#diffs");
   container.replaceChildren();
