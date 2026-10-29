@@ -62,16 +62,18 @@ async function loadStack() {
   $("#source-chip").textContent = source;
   $("#source-chip").title = "Where this stack's parents came from";
   $("#source-chip").hidden = false;
-  // The server sends the sizes it has already computed; a size it lacks keeps its last value until the fill-in below.
+  // The server sends the sizes and merge state it has already worked out; what it lacks keeps its last value until the fill-in below.
   state.stackSizes = { ...state.stackSizes, ...state.stack.sizes };
+  if (state.stack.merged) state.mergeState = state.stack.merged;
   renderStack();
-  if (state.stack.entries.some((e) => !state.stack.sizes?.[e.id])) loadStackSizes().catch(() => {});
+  if (!state.stack.merged || state.stack.entries.some((e) => !state.stack.sizes?.[e.id])) loadStackSizes().catch(() => {});
 }
 
-/** Each branch's +/− for the sidebar, from the overview's summary of the stack. */
+/** Each branch's +/− and merge state for the sidebar, from the overview's summary of the stack. */
 async function loadStackSizes() {
-  const { branches } = await getJson(`/api/overview?${new URLSearchParams({ stack: state.stackOf })}`);
+  const { branches, merged } = await getJson(`/api/overview?${new URLSearchParams({ stack: state.stackOf })}`);
   state.stackSizes = Object.fromEntries(branches.map((b) => [b.id, b]));
+  state.mergeState = merged;
   renderStack();
 }
 
@@ -81,6 +83,7 @@ async function loadOverview() {
   state.branch = state.overview.entry;
   state.diff = state.overview.diff;
   state.stackSizes = Object.fromEntries(state.overview.branches.map((b) => [b.id, b]));
+  state.mergeState = state.overview.merged;
   renderOverview();
   renderTree();
   renderStack();

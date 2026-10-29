@@ -1,6 +1,7 @@
 /** The header above a branch's description and diff: its name, PR, parent, range and counts. */
 import { renderBranchViewed } from "./comments.js";
 import { counted } from "./filters.js";
+import { mergeBadge } from "./sidebar.js";
 import { escapeHtml, shortSha } from "./lib/format.js";
 import { $, state } from "./state.js";
 
@@ -16,7 +17,7 @@ export function renderBranchHead() {
     ? `<p class="old-version">Showing v${state.version.seq} of ${state.version.latestSeq}, as it was ${new Date(state.version.observedAt).toLocaleString()}. <button class="link" type="button" data-latest>Back to the latest</button></p>`
     : "";
   $("#branch-head").innerHTML = `${old}
-    <h1>${escapeHtml(entry.id)} ${pr}</h1>
+    <h1>${escapeHtml(entry.id)} ${pr} ${mergeBadge(entry.id)}</h1>
     <p class="branch-meta">
       on <strong>${escapeHtml(parent)}</strong>
       <span class="faint">${shortSha(entry.base)}..${uncommitted ? "working tree" : shortSha(entry.head)}</span>
