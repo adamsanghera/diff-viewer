@@ -1,0 +1,19 @@
+{
+  "name": "diffview",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A local viewer for stacked branch diffs, with comments that agents read and answer",
+  "license": "MIT",
+  "bin": {
+    "diffview": "bin/diffview.mjs"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning bin/diffview.mjs",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/**/*.test.mjs\"",
+    "test:browser": "node --disable-warning=ExperimentalWarning --test \"test/browser/*.test.mjs\""
+  }
+}
