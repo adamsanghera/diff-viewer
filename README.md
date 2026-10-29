@@ -73,6 +73,24 @@ Comments live in `~/.diffview/diffview.sqlite3` (set `DIFFVIEW_HOME` to move it)
 
 diffview never writes your repo: it runs read-only git commands and reads stacking tools' records directly. It listens on 127.0.0.1 only, refuses requests that name any other host, and accepts comment writes only from its own page (they need its Origin and a JSON body). The page's Content-Security-Policy runs only diffview's own scripts, and diffs are rendered as text.
 
+## Performance
+
+Three ways to see where time goes:
+
+- **Server-Timing headers.** Every API response says how long its git commands took (summed, so parallel commands can add up to more than the request) and how long the request took. DevTools shows them in the Network panel's Timing tab.
+- **`?perf`.** Open `/view?perf` and each load reports, in the console and in `window.diffviewPerf`, every API request with its server and git time, plus the time spent rendering diffs.
+- **`DIFFVIEW_TRACE=1`.** The server logs every git command and its duration.
+
+On a large monorepo (hundreds of thousands of remote refs and hundreds of pack files), git dominates. Measured there:
+
+| Load | Time | Where it goes |
+|---|---|---|
+| A branch that is not checked out, 10 files | 0.45 s to all diffs on screen | 0.17 s for its diff, ~0.2 s rendering |
+| The checked-out branch, 33 files | 2.4 s | 2.0 s for its diff, mostly listing untracked files (`git ls-files --others`), ~0.3 s rendering |
+| A stack, first load | 1.8–2.9 s | merge-bases against a fresh trunk; later loads hit the cache until a branch moves |
+
+The page itself is cheap: one task of about 160 ms while Pierre renders and highlights a few dozen files.
+
 ## Development
 
 ```bash
