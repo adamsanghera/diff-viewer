@@ -13,7 +13,7 @@
 import { anchorFromRange, blockAt, descriptionTarget, paintDescription, threadAtPoint } from "./description.js";
 import { stackCards } from "./lib/card-stack.js";
 import { anchorLabel, railHead, railList, threadCard } from "./lib/cards.js";
-import { counted, renderedPaths } from "./filters.js";
+import { renderedPaths } from "./filters.js";
 import { escapeHtml } from "./lib/format.js";
 import { keyHint, submitMode } from "./lib/keys.js";
 import { $, autosize, getJson, PIERRE_SIDE, postJson, root, SIDE_OF, state, toast } from "./state.js";
@@ -158,6 +158,7 @@ export async function loadComments() {
   state.comments.threads = data.threads;
   state.comments.pendingCount = data.pendingCount;
   state.comments.viewed = data.viewed;
+  state.comments.branchViewed = { branch: state.branch, mark: data.branchViewed };
   state.comments.version = data.version;
   if (state.comments.active && !data.threads.some((t) => t.id === state.comments.active)) state.comments.active = null;
   const changed = before !== JSON.stringify([state.comments.threads, state.comments.viewed]);
@@ -481,10 +482,14 @@ async function setViewed(item, viewed) {
   }
 }
 
-/** Whether every file of the branch shown is viewed as it reads now. */
-function branchViewed() {
-  const files = (state.diff?.files ?? []).filter(counted);
-  return files.length > 0 && files.every((f) => viewedState(f) === "viewed");
+/**
+ * The branch shown's own viewed mark: "viewed", "changed" (its diff changed
+ * since it was marked), or null. Set only with v or the header's button,
+ * never by viewing every file.
+ */
+function branchMark() {
+  const known = state.comments.branchViewed;
+  return known?.branch === state.branch ? known.mark : null;
 }
 
 /** The branch header's toggle for marking the whole branch viewed (v). */
@@ -496,17 +501,28 @@ export function renderBranchViewed() {
     slot.innerHTML = "";
     return;
   }
-  const viewed = branchViewed();
-  slot.innerHTML = `<button class="btn btn-viewed${viewed ? " is-viewed" : ""}" type="button" data-branch-viewed title="${viewed ? "Clear every file's viewed mark (v)" : "Mark every file viewed, collapsing them until they change (v)"}">${viewed ? "✓ Branch viewed" : "Mark branch viewed"}</button>`;
+  const mark = branchMark();
+  const [label, title] =
+    mark === "viewed"
+      ? ["✓ Branch viewed", "Take the branch's viewed mark away; files keep theirs (v)"]
+      : mark === "changed"
+        ? ["↻ Changed since viewed", "The branch changed since you marked it viewed; mark it again (v)"]
+        : ["Mark branch viewed", "Mark the branch viewed, and every file in it, collapsing them until they change (v)"];
+  slot.innerHTML = `<button class="btn btn-viewed${mark === "viewed" ? " is-viewed" : mark === "changed" ? " is-changed" : ""}" type="button" data-branch-viewed title="${title}">${label}</button>`;
 }
 
-/** Marks every file of the branch shown viewed, or clears them all when it already is. */
+/** Marks the branch shown viewed, with every file in it; or, when it is marked, takes the branch's mark away. */
 export async function toggleBranchViewed() {
   if (!state.comments.enabled || state.overview || !state.diff?.files.length) return;
-  const viewed = !branchViewed();
+  const viewed = branchMark() !== "viewed";
   try {
     const result = await postJson("/api/viewed/branch", { branch: state.branch, stack: state.stackOf, viewed });
     state.comments.viewed = result.viewed;
+    state.comments.branchViewed = { branch: state.branch, mark: result.branchViewed };
+    if (!viewed) {
+      renderBranchViewed();
+      return;
+    }
     for (const item of state.views) {
       item.options = { ...item.options, collapsed: viewed };
       item.view.setOptions(item.options);

@@ -49,12 +49,15 @@ function overviewRow() {
     <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10M3 8h10M3 12h6"/></svg><span class="name">Overview</span>${commentBadge(state.stack.comments?.[state.stack.stackEntry])}</a></li>`;
 }
 
-/** How much of a branch is viewed, for its line in the stack: {done, html}, from its size's viewed and changed file counts. */
+/**
+ * How far a branch's review got, for its line in the stack: {done, html}.
+ * Only the branch's own mark (v) makes it viewed; files viewed one by one
+ * show as progress.
+ */
 function viewedProgress(size) {
-  if (!size?.files) return { done: false, html: "" };
-  if (size.viewed === size.files) return { done: true, html: '<span class="stack-viewed-mark" title="Every file viewed">✓ viewed</span>' };
-  if (size.changed) return { done: false, html: `<span class="stack-changed" title="${size.changed} changed since you viewed them">↻ changed</span>` };
-  if (size.viewed) return { done: false, html: `<span title="Files viewed">${size.viewed}/${size.files} viewed</span>` };
+  if (size?.branch === "viewed") return { done: true, html: '<span class="stack-viewed-mark" title="You marked this branch viewed">✓ viewed</span>' };
+  if (size?.branch === "changed") return { done: false, html: '<span class="stack-changed" title="Changed since you marked it viewed">↻ changed</span>' };
+  if (size?.viewed) return { done: false, html: `<span title="Files viewed">${size.viewed}/${size.files} files</span>` };
   return { done: false, html: "" };
 }
 
