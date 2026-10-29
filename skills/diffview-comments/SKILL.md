@@ -48,9 +48,13 @@ When a stack is ready for the human to review:
    - `diffview comments reply <id> -m "..."` to explain or to ask.
    - `diffview comments suggest-resolve <id> -m "<what changed>"` when it
      is done. The human confirms by resolving it.
-   - Several at once: `diffview comments apply --stdin` with a JSON list,
-     applied all or nothing:
+   - Several at once: `diffview comments apply --from actions.json` with a
+     JSON list, applied all or nothing:
      `[{"reply": 7, "message": "..."}, {"suggestResolve": 8, "message": "..."}]`
+
+   For anything longer than a line, or with code blocks, write the message
+   to a file outside the worktree and pass `--from <file>` instead of `-m`,
+   so you can edit it before sending; `--from -` reads stdin.
 4. Run `diffview comments list` again and check each thread's state.
 
 `diffview comments show <id>...` prints chosen threads in full.
@@ -126,7 +130,9 @@ description under "..."` or `the whole stack`.
 
 ## Also
 
-- Set `DIFFVIEW_AUTHOR=<name>` so the human can tell agents apart.
+- Your messages are signed with the start of your session id ("agent
+  940d8cee"), so the human can tell agents apart; set
+  `DIFFVIEW_AUTHOR=<name>` for a friendlier name.
 - Every verb takes `--json` for structured output.
 - After a large change, leave notes on your own diff for the human to read
   in review: `diffview comments add --file <path> --line <n>[-<m>] -m "..."`,

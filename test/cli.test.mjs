@@ -118,6 +118,48 @@ test("apply answers a batch from stdin, all or nothing", async () => {
   assert.equal(ctx.cli("list", "--waiting-on", "agent").out.trim(), "Nothing is waiting on the agent.");
 });
 
+test("messages and batches come from files, or stdin with --from -", async () => {
+  const ctx = setup();
+  const one = await humanComment(ctx, { entry: "feat/b", path: "src/app.js", startLine: 3, body: "One" });
+  const two = await humanComment(ctx, { entry: "feat/a", path: "src/app.js", startLine: 1, body: "Two" });
+  const notes = fs.mkdtempSync(path.join(os.tmpdir(), "diffview-notes-"));
+  const reply = path.join(notes, "reply.md");
+  fs.writeFileSync(reply, "Because:\n\n```js\nconst c = add(a, b);\n```\n");
+  assert.equal(ctx.cli("reply", String(one), "--from", reply).status, 0);
+  assert.match(ctx.cli("show", String(one)).out, /```js\n {4}const c = add\(a, b\);\n {4}```/);
+  assert.equal(ctx.cliWithStdin("Fixed in add().\n", "suggest-resolve", String(two), "-F", "-").status, 0);
+  assert.match(ctx.cli("show", String(two)).out, /Fixed in add\(\)\./);
+
+  const actions = path.join(notes, "actions.json");
+  fs.writeFileSync(actions, JSON.stringify([{ reply: one, message: "And another thing." }]));
+  assert.match(ctx.cli("apply", "--from", actions).out, /Applied 1 action/);
+
+  assert.match(ctx.cli("reply", String(one), "-m", "x", "--from", reply).err, /give -m or --from, not both/);
+  assert.match(ctx.cli("reply", String(one), "--from", path.join(notes, "nope.md")).err, /cannot read .*nope\.md: no such file/);
+  assert.match(ctx.cli("apply").err, /--from <actions\.json>, or --stdin/);
+});
+
+test("a mistyped verb gets a guess, not the whole help", () => {
+  const { cli } = setup();
+  const typo = cli("lst");
+  assert.equal(typo.status, 2);
+  assert.equal(typo.err, 'diffview comments: unknown verb "lst"; did you mean "list"? Verbs: list, show, reply, suggest-resolve, apply, resolve, reopen, add, wait.\n');
+  assert.match(cli("suggest").err, /did you mean "suggest-resolve"\?/);
+  assert.doesNotMatch(cli("frobnicate").err, /did you mean/);
+  assert.match(cli("list", "--nope").err, /^diffview comments: Unknown option '--nope'.*See diffview comments --help\.\n$/);
+});
+
+test("an agent without DIFFVIEW_AUTHOR is named for its session", async () => {
+  const ctx = setup();
+  const id = await humanComment(ctx, { entry: "feat/b", path: "src/app.js", startLine: 3, body: "Who?" });
+  const env = { ...process.env, DIFFVIEW_HOME: ctx.home, CURSOR_CONVERSATION_ID: "940d8cee-dac1-4aae" };
+  delete env.DIFFVIEW_AUTHOR;
+  delete env.DIFFVIEW_SESSION;
+  const res = spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", BIN, "comments", "reply", String(id), "-m", "Me."], { cwd: ctx.repo.dir, env, encoding: "utf8" });
+  assert.equal(res.status, 0, res.stderr);
+  assert.match(ctx.cli("show", String(id)).out, /agent 940d8cee · /);
+});
+
 test("add starts a thread on lines, a file, or the whole branch", () => {
   const { cli } = setup();
   assert.match(cli("add", "--file", "src/add.js", "--line", "1", "-m", "Is this exported on purpose?").out, /Started thread #\d+ on src\/add\.js line 1 of feat\/b/);
