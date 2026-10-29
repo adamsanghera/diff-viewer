@@ -29,7 +29,13 @@ export const ROW_MARK_CSS = `
   background-image: linear-gradient(var(--dv-over, transparent), var(--dv-over, transparent)), linear-gradient(var(--dv-tint, transparent), var(--dv-tint, transparent));
 }
 [data-hovered] { --dv-over: var(--hover); }
-[data-selected-line] { --dv-over: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent) !important; }
+/* Pierre selects whole rows, so in a split diff it marks a context line on both sides; only the side being selected is tinted. */
+code[data-unified] [data-selected-line],
+:host(:not([data-dv-select-side])) [data-selected-line],
+:host([data-dv-select-side="additions"]) code[data-additions] [data-selected-line],
+:host([data-dv-select-side="deletions"]) code[data-deletions] [data-selected-line] { --dv-over: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent) !important; }
+:host([data-dv-select-side="additions"]) code[data-deletions],
+:host([data-dv-select-side="deletions"]) code[data-additions] { --diffs-selection-number-fg: var(--diffs-fg-number); }
 [data-dv-comment] { box-shadow: inset 3px 0 0 var(--dv-mark); cursor: pointer; }
 [data-dv-comment="open"] { --dv-mark: rgb(240, 124, 0); --dv-tint: rgba(240, 124, 0, 0.12); --dv-tint-active: rgba(240, 124, 0, 0.26); }
 [data-dv-comment="turn"] { --dv-mark: rgb(53, 101, 226); --dv-tint: rgba(53, 101, 226, 0.1); --dv-tint-active: rgba(53, 101, 226, 0.24); }
@@ -330,6 +336,14 @@ function closeComposer({ keepText = false } = {}) {
     state.reloadWaiting = false;
     commentHooks.refreshAfterComposer();
   }
+}
+
+/** Records which side a selection is on, as the selection starts and moves, so ROW_MARK_CSS tints only that column. */
+export function markSelectionSide(item, range) {
+  const host = item.section.firstElementChild;
+  if (!host) return;
+  if (range?.side) host.dataset.dvSelectSide = range.side;
+  else delete host.dataset.dvSelectSide;
 }
 
 /** Pierre calls this when a line selection ends: {start, side, end, endSide}, sides "additions" or "deletions". */
