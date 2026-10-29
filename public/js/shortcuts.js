@@ -1,5 +1,5 @@
 /** Keyboard shortcuts. `show` (main.js) moves to another branch, or with null to the overview. */
-import { toggleInline } from "./comments.js";
+import { toggleBranchViewed, toggleInline } from "./comments.js";
 import { cycleLayout } from "./diffs.js";
 import { stackRows } from "./lib/tree.js";
 import { hasOverview, toggleSidebar } from "./sidebar.js";
@@ -24,6 +24,7 @@ export function installShortcuts({ show }) {
     f: toggleSidebar,
     s: cycleLayout,
     i: toggleInline,
+    v: toggleBranchViewed,
     "[": () => moveBranch(-1),
     "]": () => moveBranch(1),
     j: () => moveFile(1),

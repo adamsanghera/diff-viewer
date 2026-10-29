@@ -241,6 +241,11 @@ a.stack-row:hover { background: var(--hover); }
 .stack-label { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 /* Its height is kept while the sizes load, so rows do not jump when they arrive. */
 .stack-size { min-height: 16px; font: var(--text-xs) / 16px var(--mono); font-weight: normal; color: var(--text-faint); }
+.stack-viewed-mark { color: var(--success); }
+.stack-changed { color: var(--warning); }
+.stack-row.stack-viewed .name { color: var(--text-soft); }
+.stack-row.stack-viewed:not(.active) .dot { border-color: var(--success); background: var(--success); }
+.btn-viewed.is-viewed { color: var(--success); }
 .stack-row .dot {
   position: relative;
   flex: none;

@@ -174,6 +174,30 @@ test("marking a file viewed collapses it, and an edit to it clears the mark", op
   assert.match(await page.eval(() => document.querySelector(".file-diff > *").querySelector(".viewed").textContent), /Changed since viewed/);
 });
 
+test("v marks the whole branch viewed, and the stack shows which branches are viewed or changed since", options, async () => {
+  const { page, repo } = await openViewer();
+  const row = (branch) => `.stack-row[data-branch="${branch}"]`;
+  await page.waitFor(() => document.querySelector("[data-branch-viewed]")?.textContent === "Mark branch viewed", { what: "the branch's viewed toggle" });
+  await page.eval(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "v", bubbles: true })));
+  await page.waitFor(() => document.querySelector("[data-branch-viewed]")?.textContent === "✓ Branch viewed", { what: "the toggle to say viewed" });
+  assert.equal(await page.eval(() => document.querySelectorAll("#tree .file-viewed").length), 2, "both files viewed");
+  assert.equal(await page.eval(() => [...document.querySelectorAll(".file-diff > *")].every((f) => !f.shadowRoot.querySelector("[data-line]"))), true, "both collapsed");
+  await page.waitFor((sel) => document.querySelector(sel)?.classList.contains("stack-viewed"), { what: "the stack to show feat/b viewed" }, row("feat/b"));
+  assert.match(await page.eval((sel) => document.querySelector(`${sel} .stack-size`).textContent, row("feat/b")), /· ✓ viewed$/);
+  assert.equal(await page.eval((sel) => document.querySelector(`${sel} .stack-size`).textContent.includes("viewed"), row("feat/a")), false);
+
+  await page.waitFor(() => document.querySelector("#live").dataset.state === "on");
+  repo.write("src/util.js", "export const compute = (x) => x * 3;\n");
+  await page.waitFor((sel) => document.querySelector(`${sel} .stack-size`)?.textContent.endsWith("· ↻ changed"), { timeout: 10000, what: "the stack to show feat/b changed" }, row("feat/b"));
+  assert.equal(await page.eval(() => document.querySelector("[data-branch-viewed]").textContent), "Mark branch viewed");
+
+  await page.eval(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "v", bubbles: true })));
+  await page.waitFor(() => document.querySelector("[data-branch-viewed]")?.textContent === "✓ Branch viewed", { what: "v to mark it viewed again" });
+  await page.eval(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "v", bubbles: true })));
+  await page.waitFor(() => !document.querySelector("#tree .file-viewed"), { what: "v again to clear every mark" });
+  assert.deepEqual(page.errors, []);
+});
+
 test("the agent's description shows above the diff, and selected text in it takes a comment", options, async () => {
   const { page, home, started } = await openViewer();
   assert.match(await page.eval(() => document.querySelector("#description").innerText), /No description yet/);
