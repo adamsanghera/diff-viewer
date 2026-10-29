@@ -15,5 +15,9 @@
     "start": "node --disable-warning=ExperimentalWarning bin/diffview.mjs",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/**/*.test.mjs\"",
     "test:browser": "node --disable-warning=ExperimentalWarning --test \"test/browser/*.test.mjs\""
+  },
+  "dependencies": {
+    "@pierre/diffs": "1.6.2",
+    "esbuild": "0.28.2"
   }
 }
