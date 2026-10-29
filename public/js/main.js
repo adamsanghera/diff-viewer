@@ -14,6 +14,9 @@ const THEMES = ["auto", "light", "dark"];
 const PREFERS_DARK = matchMedia("(prefers-color-scheme: dark)");
 const PIERRE_THEMES = { light: "pierre-light", dark: "pierre-dark" };
 const STATUS_MARKS = { added: "A", deleted: "D", modified: "M", renamed: "R", copied: "C" };
+const LAYOUTS = ["auto", "split", "unified"];
+// Under Auto, the narrowest diff pane that gets split diffs: each side then still shows about 60 columns of code.
+const AUTO_SPLIT_MIN_WIDTH = 1000;
 
 const state = {
   info: null,
@@ -22,7 +25,8 @@ const state = {
   stack: null,
   diff: null,
   views: [],
-  layout: localStorage.getItem("diffview.layout") || "split",
+  layout: localStorage.getItem("diffview.layout") || "auto",
+  diffStyle: null,
 };
 
 async function getJson(url) {
@@ -72,15 +76,30 @@ function cycleTheme() {
   applyTheme();
 }
 
+/** The diff style shown: the chosen one, or under Auto, split when the pane is wide enough. */
+function effectiveLayout() {
+  if (state.layout !== "auto") return state.layout;
+  return $("#main").clientWidth >= AUTO_SPLIT_MIN_WIDTH ? "split" : "unified";
+}
+
+/** Re-renders the diffs if the style shown should change, as when the window or sidebar resizes under Auto. */
+function applyLayout() {
+  const diffStyle = effectiveLayout();
+  $('[data-layout="auto"]').title = `Split when the window is wide enough, else one column; now ${diffStyle} (s)`;
+  if (diffStyle === state.diffStyle) return;
+  state.diffStyle = diffStyle;
+  for (const item of state.views) {
+    item.options = { ...item.options, diffStyle };
+    item.view.setOptions(item.options);
+    item.view.rerender();
+  }
+}
+
 function setLayout(layout) {
   state.layout = layout;
   localStorage.setItem("diffview.layout", layout);
   for (const button of document.querySelectorAll("[data-layout]")) button.setAttribute("aria-pressed", String(button.dataset.layout === layout));
-  for (const item of state.views) {
-    item.options = { ...item.options, diffStyle: layout };
-    item.view.setOptions(item.options);
-    item.view.rerender();
-  }
+  applyLayout();
 }
 
 function toggleSidebar() {
@@ -204,7 +223,7 @@ function renderFiles() {
     }
     const item = { file, view: null, options: null };
     item.options = {
-      diffStyle: state.layout,
+      diffStyle: state.diffStyle,
       theme: PIERRE_THEMES,
       themeType: root.dataset.theme,
       overflow: "scroll",
@@ -304,7 +323,7 @@ function onKey(event) {
   const actions = {
     "/": () => $("#filter").focus(),
     "\\": toggleSidebar,
-    s: () => setLayout(state.layout === "split" ? "unified" : "split"),
+    s: () => setLayout(LAYOUTS[(LAYOUTS.indexOf(state.layout) + 1) % LAYOUTS.length]),
     "[": () => moveBranch(-1),
     "]": () => moveBranch(1),
     j: () => moveFile(1),
@@ -349,6 +368,7 @@ async function main() {
     }
   });
   document.addEventListener("keydown", onKey);
+  new ResizeObserver(applyLayout).observe($("#main"));
   addEventListener("popstate", () => {
     readLocation();
     show(state.branch, { push: false });

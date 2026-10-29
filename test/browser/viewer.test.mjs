@@ -43,15 +43,26 @@ test("the page shows the stack, the branch's files, and its diff", options, asyn
   assert.deepEqual(page.errors, []);
 });
 
-test("clicking a branch shows its diff, and the layout toggle switches to one column", options, async () => {
+test("clicking a branch shows its diff, and Unified switches to one column", options, async () => {
   const { page } = await openViewer();
   await page.eval(() => document.querySelector('.stack-row[data-branch="feat/a"]').click());
   await page.waitFor(() => document.querySelector("#branch-name").textContent === "feat/a");
   assert.match(await page.eval(() => location.search), /branch=feat%2Fa/);
   await page.eval(() => document.querySelector('[data-layout="unified"]').click());
-  const pressed = await page.eval(() => document.querySelector('[data-layout="unified"]').getAttribute("aria-pressed"));
-  assert.equal(pressed, "true");
+  await page.waitFor(() => document.querySelector(".file-diff > *").shadowRoot.querySelector("[data-diff-type]")?.dataset.diffType === "single", {
+    what: "one column",
+  });
   assert.deepEqual(page.errors, []);
+});
+
+test("Auto shows split diffs in a wide window and one column in a narrow one", options, async () => {
+  const { page } = await openViewer();
+  // Pierre marks its <pre> "split" or, for one column, "single".
+  const diffTypeIs = (type) => document.querySelector(".file-diff > *").shadowRoot.querySelector("[data-diff-type]")?.dataset.diffType === type;
+  assert.equal(await page.eval(() => document.querySelector('[data-layout="auto"]').getAttribute("aria-pressed")), "true");
+  await page.waitFor(diffTypeIs, { what: "split in a wide window" }, "split");
+  await page.resize(900, 900);
+  await page.waitFor(diffTypeIs, { what: "one column in a narrow window" }, "single");
 });
 
 test("an edit in the working tree shows up without a reload", options, async () => {
