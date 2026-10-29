@@ -61,6 +61,15 @@ function viewedProgress(size) {
   return { done: false, html: "" };
 }
 
+/** A branch's "merged" or "pushed" badge, from the server's merge state; empty when it is in neither trunk. */
+export function mergeBadge(branch) {
+  const trunk = state.stack?.trunk ?? "trunk";
+  const merged = state.mergeState?.[branch];
+  if (merged === "pushed") return `<span class="badge badge-merged" title="In ${escapeHtml(trunk)} and origin/${escapeHtml(trunk)}">pushed</span>`;
+  if (merged === "merged") return `<span class="badge badge-merged" title="In ${escapeHtml(trunk)}, not yet in origin/${escapeHtml(trunk)}">merged</span>`;
+  return "";
+}
+
 export function renderStack() {
   const { entries, trunk } = state.stack;
   const checkedOut = state.stack.checkedOut;
@@ -68,6 +77,7 @@ export function renderStack() {
   $("#stack-meta").textContent = `${prefix} · ${entries.length} ${entries.length === 1 ? "branch" : "branches"}`.replace(/^ · /, "");
   const rows = stackRows(entries).map(({ entry, depth }, index) => {
     const badges = [
+      mergeBadge(entry.id),
       commentBadge(state.stack.comments?.[entry.id]),
       entry.id === checkedOut ? '<span class="badge badge-head" title="Checked out">HEAD</span>' : "",
       entry.needsRestack ? `<span class="badge badge-warn" title="Its base is no longer ${escapeHtml(entry.parent)}'s tip">restack</span>` : "",
@@ -78,7 +88,8 @@ export function renderStack() {
     const size = shownSize(state.stackSizes?.[entry.id]);
     const viewed = viewedProgress(size);
     const sizeText = size ? `<span class="add">+${size.additions}</span> <span class="del">−${size.deletions}</span>${viewed.html ? ` · ${viewed.html}` : ""}` : "";
-    return `<li><a class="stack-row${top}${active}${viewed.done ? " stack-viewed" : ""}" href="?${new URLSearchParams({ branch: entry.id, stack: state.stackOf })}" data-branch="${escapeHtml(entry.id)}" style="--depth:${depth}" title="${escapeHtml(entry.id)} (from ${escapeHtml(entry.source)})">
+    const merged = state.mergeState?.[entry.id] ? " stack-merged" : "";
+    return `<li><a class="stack-row${top}${active}${viewed.done ? " stack-viewed" : ""}${merged}" href="?${new URLSearchParams({ branch: entry.id, stack: state.stackOf })}" data-branch="${escapeHtml(entry.id)}" style="--depth:${depth}" title="${escapeHtml(entry.id)} (from ${escapeHtml(entry.source)})">
       <span class="dot"></span><span class="stack-label"><span class="name">${escapeHtml(entry.id.slice(prefix.length))}</span><span class="stack-size">${sizeText}</span></span>${badges}</a></li>`;
   });
   rows.push(`<li><span class="stack-row trunk"><span class="dot"></span><span class="name">${escapeHtml(trunk ?? "trunk")}</span></span></li>`);

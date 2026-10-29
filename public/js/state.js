@@ -12,6 +12,8 @@ export const state = {
   overview: null,
   /** Each branch's {additions, deletions} for the sidebar, by branch name; null until they load. */
   stackSizes: null,
+  /** Which branches are in trunk, by name: "merged" (local trunk) or "pushed" (also the remote's); absent when neither. */
+  mergeState: {},
   diff: null,
   /** The branch's description: {seq, title, html, sha256, ...}, or null when it has none. */
   description: null,

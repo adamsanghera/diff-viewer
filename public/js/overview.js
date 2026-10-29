@@ -5,6 +5,7 @@
  */
 import { cleanUpViews } from "./diffs.js";
 import { shownSize } from "./filters.js";
+import { mergeBadge } from "./sidebar.js";
 import { escapeHtml } from "./lib/format.js";
 import { stackRows } from "./lib/tree.js";
 import { $, state } from "./state.js";
@@ -38,7 +39,7 @@ export function renderOverview() {
     return `<li class="overview-branch">
       <div class="overview-branch-head">
         <a href="?${new URLSearchParams({ branch: e.id, stack: state.stackOf })}" data-branch="${escapeHtml(e.id)}">${escapeHtml(b.title ?? e.id)}</a>
-        ${pr}${comments}
+        ${mergeBadge(e.id)}${pr}${comments}
         <span class="counts"><span class="add">+${b.additions}</span> <span class="del">−${b.deletions}</span></span>
       </div>
       ${b.title ? `<p class="overview-branch-name">${escapeHtml(e.id)}</p>` : ""}

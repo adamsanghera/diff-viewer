@@ -249,6 +249,27 @@ test("once warm, the stack carries each branch's size, so the sidebar needs no s
   assert.deepEqual([sizes.b.files, sizes.b.additions, sizes.b.deletions], [1, 1, 0]);
 });
 
+test("a branch reads as merged once trunk holds it, and pushed once the remote's trunk does", async () => {
+  const repo = stackRepo();
+  // As a stacking tool records them, so merged branches stay in the stack; git history alone folds them into trunk.
+  for (const [branch, parent, base] of [["a", "main", repo.sha("main")], ["b", "a", repo.sha("a")]]) {
+    repo.git("config", `branch.${branch}.origin-parent`, parent);
+    repo.git("config", `branch.${branch}.origin-parent-sha`, base);
+    repo.git("config", `branch.${branch}.origin-change`, "7");
+  }
+  const { url } = await serve(repo);
+  const merged = async () => (await (await fetch(`${url}api/overview?stack=b`)).json()).merged;
+  assert.deepEqual(await merged(), {});
+  repo.git("branch", "-f", "main", "a");
+  assert.deepEqual(await merged(), { a: "merged" });
+  repo.git("update-ref", "refs/remotes/origin/main", "a");
+  assert.deepEqual(await merged(), { a: "pushed" });
+  const { merged: carried } = await (await fetch(`${url}api/stack?branch=b`)).json();
+  assert.deepEqual(carried, { a: "pushed" }, "once worked out, the stack's response carries it");
+  repo.git("branch", "-f", "main", "b");
+  assert.deepEqual(await merged(), { a: "pushed", b: "merged" });
+});
+
 test("after a commit, the checked-out branch's diff is computed again ahead of the page", async () => {
   const repo = stackRepo();
   const { url, warmed } = await serve(repo);
