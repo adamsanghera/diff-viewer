@@ -10,8 +10,11 @@
 </head>
 <body>
   <header class="topbar">
-    <button class="icon-btn" id="toggle-sidebar" title="Show or hide the stack and files (f)" aria-label="Show or hide the stack and files">
-      <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="2"/><path d="M6 2.5v11"/></svg>
+    <button class="icon-btn" id="toggle-stack" title="Show or hide the stack (s)" aria-label="Show or hide the stack">
+      <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="4" cy="3.5" r="1.5"/><circle cx="4" cy="12.5" r="1.5"/><path d="M4 5v6M8 3.5h5.5M8 8h5.5M8 12.5h5.5"/><circle cx="4" cy="8" r="1.5"/></svg>
+    </button>
+    <button class="icon-btn" id="toggle-files" title="Show or hide the branch's files (f)" aria-label="Show or hide the branch's files">
+      <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 1.5h6l3 3v10h-9z"/><path d="M9.5 1.5v3h3M5.5 8h5M5.5 11h5"/></svg>
     </button>
     <div class="crumbs"><span id="repo-name"></span><span class="sep">/</span><span class="here" id="branch-name"></span></div>
     <span class="chip" id="source-chip" hidden></span>
@@ -31,8 +34,8 @@
       </button>
       <div class="seg" role="group" aria-label="Diff layout">
         <button type="button" data-layout="auto">Auto</button>
-        <button type="button" data-layout="split" title="Side by side (s)">Split</button>
-        <button type="button" data-layout="unified" title="One column (s)">Unified</button>
+        <button type="button" data-layout="split" title="Side by side">Split</button>
+        <button type="button" data-layout="unified" title="One column">Unified</button>
       </div>
       <span class="live" id="live" title="Live reload: connecting"></span>
       <button class="icon-btn" id="theme" type="button" aria-label="Theme">
@@ -44,11 +47,11 @@
   </header>
   <div class="layout">
     <aside class="sidebar" id="sidebar">
-      <section>
+      <section class="panel" id="stack-panel">
         <h2>Stack <span class="faint" id="stack-meta"></span></h2>
         <ol class="stack" id="stack"></ol>
       </section>
-      <section>
+      <section class="panel" id="files-panel">
         <h2>Files <span class="faint" id="files-meta"></span></h2>
         <div class="filter-wrap"><input id="filter" type="search" placeholder="Filter files" autocomplete="off" spellcheck="false"><kbd>/</kbd></div>
         <div class="kind-filters" id="kind-filters" hidden></div>

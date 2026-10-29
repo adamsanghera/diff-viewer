@@ -206,19 +206,25 @@ a { color: var(--link); }
 /* Layout */
 
 .layout { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); }
-.no-sidebar .layout { grid-template-columns: minmax(0, 1fr); }
-.no-sidebar .sidebar { display: none; }
+.no-stack.no-files .layout { grid-template-columns: minmax(0, 1fr); }
+.no-stack.no-files .sidebar { display: none; }
+.no-stack #stack-panel, .no-files #files-panel { display: none; }
 
+/* The stack and the files scroll on their own, so a long file list never pushes the stack out of view. */
 .sidebar {
   position: sticky;
   top: var(--topbar);
   height: calc(100vh - var(--topbar));
-  overflow: auto;
-  padding: 14px 10px 40px;
+  display: flex;
+  flex-direction: column;
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border);
 }
-.sidebar section + section { margin-top: 18px; }
+.panel { overflow: auto; padding: 14px 10px; }
+#stack-panel { flex: none; max-height: 45%; }
+#files-panel { flex: 1; min-height: 0; padding-bottom: 40px; }
+.panel + .panel { border-top: 1px solid var(--border); }
+.no-files #stack-panel { flex: 1; max-height: none; }
 .sidebar h2 { margin: 0 6px 8px; font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--text-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Stack */

@@ -9,10 +9,16 @@ const STATUS_MARKS = { added: "A", deleted: "D", modified: "M", renamed: "R", co
 const CHEVRON = '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>';
 const VIEWED_MARKS = { viewed: '<span class="viewed-mark" title="Viewed">✓</span>', changed: '<span class="viewed-mark changed" title="Changed since viewed">↻</span>', unviewed: "" };
 
-export function toggleSidebar() {
-  const hidden = root.classList.toggle("no-sidebar");
-  localStorage.setItem("diffview.sidebar", hidden ? "hidden" : "shown");
+// The stack (s) and the branch's files (f) show and hide on their own; with both hidden, the sidebar goes. boot.js applies the saved choice before the first paint.
+const PANELS = { stack: "no-stack", files: "no-files" };
+
+function togglePanel(panel) {
+  const hidden = root.classList.toggle(PANELS[panel]);
+  localStorage.setItem(`diffview.panel.${panel}`, hidden ? "hidden" : "shown");
 }
+
+export const toggleStackPanel = () => togglePanel("stack");
+export const toggleFilesPanel = () => togglePanel("files");
 
 /* The stack */
 
