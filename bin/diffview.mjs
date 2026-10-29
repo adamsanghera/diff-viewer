@@ -2,7 +2,8 @@
 import { spawn } from "node:child_process";
 import { parseArgs } from "node:util";
 import { runComments, runDescribe } from "../lib/comments-cli.mjs";
-import { register } from "../lib/registry.mjs";
+import { liveServers, register } from "../lib/registry.mjs";
+import { openRepo } from "../lib/repo.mjs";
 import { startServer } from "../lib/server.mjs";
 import { SOURCES } from "../lib/stack.mjs";
 import { openStore, storeHome } from "../lib/store.mjs";
@@ -19,8 +20,10 @@ const USAGE = `Usage: diffview [repo-dir] [options]
 
 Opens the stack of the checked-out branch in a local diff viewer: every
 branch from trunk to the top, each with its own diff. Stacks made with
-Graphite, Origin, gh stack, or plain git branches all work. "diffview
-comments --help" lists the verbs agents use to read and answer comments.
+Graphite, Origin, gh stack, or plain git branches all work. When a viewer
+already serves this checkout, diffview prints its link and exits instead of
+starting another (unless --port is given). "diffview comments --help" lists
+the verbs agents use to read and answer comments.
 
 Options:
   -b, --branch <name>        Open this branch's stack instead of the checked-out one.
@@ -62,6 +65,32 @@ if (source && !SOURCE_NAMES.includes(source)) fail(`--stack-source must be one o
 const port = values.port === undefined ? undefined : Number(values.port);
 if (port !== undefined && !(Number.isInteger(port) && port > 0 && port < 65536)) fail(`--port must be a port number, not ${values.port}`);
 
+/** The page for `branch`'s stack on the viewer at `url`, or the viewer's own start page. */
+function linkTo(url, branch) {
+  return branch ? `${url}view?branch=${encodeURIComponent(branch)}` : url;
+}
+
+function openInBrowser(url) {
+  if (!values["no-open"]) spawn("open", [url], { stdio: "ignore", detached: true }).unref();
+}
+
+// A second viewer of the same checkout would only take another port, so hand out the running one's link.
+if (port === undefined) {
+  let top;
+  try {
+    ({ top } = await openRepo(positionals[0] ?? "."));
+  } catch (err) {
+    fail(err.message);
+  }
+  const running = liveServers(storeHome()).find((s) => s.root === top && (s.source ?? null) === (source ?? null));
+  if (running) {
+    const link = linkTo(`http://127.0.0.1:${running.port}/`, values.branch);
+    console.log(`diffview already serving ${top} (pid ${running.pid})\n  ${link}`);
+    openInBrowser(link);
+    process.exit(0);
+  }
+}
+
 await ensureVendorBundle();
 const store = await openStore().catch((err) => {
   console.error(`diffview: comments are off because the comment store did not open: ${err.message}`);
@@ -73,11 +102,12 @@ try {
 } catch (err) {
   fail(err.message);
 }
-console.log(`diffview serving ${started.repo.top}\n  ${started.url}`);
+const link = linkTo(started.url, values.branch);
+console.log(`diffview serving ${started.repo.top}\n  ${link}`);
 if (store) {
-  const unregister = register(storeHome(), { port: started.port, root: started.repo.top });
+  const unregister = register(storeHome(), { port: started.port, root: started.repo.top, source: source ?? null });
   process.on("exit", unregister);
   // SIGHUP stays default, so a viewer started under nohup keeps running when its terminal goes.
   for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => process.exit(0));
 }
-if (!values["no-open"]) spawn("open", [started.url], { stdio: "ignore", detached: true }).unref();
+openInBrowser(link);

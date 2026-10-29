@@ -206,6 +206,24 @@ test("a comment on the description shows in list and show with its paragraph", a
   assert.match(show.out, /To change it: diffview describe --branch feat\/b --stdin/);
 });
 
+test("a second diffview on the same checkout prints the running viewer's link instead of starting another", async (t) => {
+  const ctx = setup();
+  const env = { ...process.env, DIFFVIEW_HOME: ctx.home };
+  const viewer = spawn(process.execPath, ["--disable-warning=ExperimentalWarning", BIN, "--no-open", "--port", "4960", "-b", "feat/a"], { cwd: ctx.repo.dir, env });
+  t.after(() => viewer.kill());
+  let out = "";
+  viewer.stdout.on("data", (chunk) => (out += chunk));
+  await until(() => out.includes("http://"), { what: "the first viewer's link" });
+  assert.match(out, /http:\/\/127\.0\.0\.1:4960\/view\?branch=feat%2Fa/);
+
+  const second = spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", BIN, "--no-open", "-b", "feat/b"], { cwd: ctx.repo.dir, env, encoding: "utf8" });
+  assert.equal(second.status, 0, second.stderr);
+  const link = second.stdout.match(/http:\S+/)?.[0];
+  assert.equal(link, "http://127.0.0.1:4960/view?branch=feat%2Fb");
+  assert.match(second.stdout, /already serving/);
+  assert.equal((await fetch(link)).status, 200);
+});
+
 test("no verb changes the repo", async () => {
   const ctx = setup();
   const snapshot = () => [ctx.repo.git("for-each-ref"), ctx.repo.git("status", "--porcelain"), fs.readFileSync(path.join(ctx.repo.commonDir(), "config"), "utf8")];
