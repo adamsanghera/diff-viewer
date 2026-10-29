@@ -53,8 +53,14 @@
       </section>
       <section class="panel" id="files-panel">
         <h2>Files <span class="faint" id="files-meta"></span></h2>
-        <div class="filter-wrap"><input id="filter" type="search" placeholder="Filter files" autocomplete="off" spellcheck="false"><kbd>/</kbd></div>
-        <div class="kind-filters" id="kind-filters" hidden></div>
+        <div class="file-tools">
+          <div class="filter-wrap"><input id="filter" type="search" placeholder="Search files" autocomplete="off" spellcheck="false"><kbd>/</kbd></div>
+          <button class="icon-btn filter-btn" id="filter-btn" type="button" title="Filter files" aria-label="Filter files" aria-haspopup="true" aria-expanded="false">
+            <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4h11M4.5 8h7M6.5 12h3"/></svg>
+          </button>
+        </div>
+        <div class="hidden-summary" id="hidden-summary" hidden><span id="hidden-summary-text"></span><button class="link" type="button" data-reset-filters>Reset</button></div>
+        <div class="filter-menu" id="filter-menu" role="menu" hidden></div>
         <nav class="tree" id="tree"></nav>
       </section>
     </aside>
