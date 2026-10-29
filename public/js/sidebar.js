@@ -1,6 +1,7 @@
 /** The sidebar: the stack, the branch's files, and showing or hiding it. */
 import { viewedState } from "./comments.js";
 import { escapeHtml } from "./lib/format.js";
+import { counted, KINDS, rendered, shownKinds, shownSize } from "./kinds.js";
 import { buildTree, stackRows } from "./lib/tree.js";
 import { $, root, state } from "./state.js";
 
@@ -65,7 +66,7 @@ export function renderStack() {
     ].join("");
     const active = !state.overview && entry.id === state.branch ? " active" : "";
     const top = index === 0 ? " stack-top" : "";
-    const size = state.stackSizes?.[entry.id];
+    const size = shownSize(state.stackSizes?.[entry.id]);
     const viewed = viewedProgress(size);
     const sizeText = size ? `<span class="add">+${size.additions}</span> <span class="del">−${size.deletions}</span>${viewed.html ? ` · ${viewed.html}` : ""}` : "";
     return `<li><a class="stack-row${top}${active}${viewed.done ? " stack-viewed" : ""}" href="?${new URLSearchParams({ branch: entry.id, stack: state.stackOf })}" data-branch="${escapeHtml(entry.id)}" style="--depth:${depth}" title="${escapeHtml(entry.id)} (from ${escapeHtml(entry.source)})">
@@ -78,13 +79,29 @@ export function renderStack() {
 
 /* The branch's files */
 
+/** Toggles for showing tests and generated files, with how many the branch has; only kinds the branch has. */
+function renderKindFilters(files) {
+  const toggles = Object.entries(KINDS)
+    .map(([kind, label]) => [kind, label, files.filter((f) => f.kind === kind).length])
+    .filter(([, , n]) => n > 0)
+    .map(
+      ([kind, label, n]) =>
+        `<button class="kind-toggle" type="button" data-show-kind="${kind}" aria-pressed="${shownKinds.has(kind)}" title="${shownKinds.has(kind) ? "Hide" : "Show"} ${label.toLowerCase()} files">${label} <span class="faint">${n}</span></button>`,
+    );
+  $("#kind-filters").innerHTML = toggles.join("");
+  $("#kind-filters").hidden = !toggles.length;
+}
+
 export function renderTree() {
-  const files = state.diff?.files ?? [];
+  const all = state.diff?.files ?? [];
+  renderKindFilters(all);
+  const files = all.filter(rendered);
   const query = $("#filter").value.trim().toLowerCase();
   const shown = query ? files.filter((f) => f.path.toLowerCase().includes(query)) : files;
-  const byPath = new Map(files.map((f, i) => [f.path, { ...f, index: i }]));
-  const viewed = files.filter((f) => viewedState(f) === "viewed").length;
-  $("#files-meta").textContent = files.length ? (state.comments.enabled ? `${viewed}/${files.length} viewed` : `${files.length}`) : "";
+  const byPath = new Map(all.map((f, i) => [f.path, { ...f, index: i }]));
+  const listed = all.filter(counted);
+  const viewed = listed.filter((f) => viewedState(f) === "viewed").length;
+  $("#files-meta").textContent = listed.length ? (state.comments.enabled ? `${viewed}/${listed.length} viewed` : `${listed.length}`) : "";
   const renderNode = (node) => {
     const items = [];
     for (const [name, child] of node.dirs) {

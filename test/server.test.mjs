@@ -179,8 +179,12 @@ test("an edit to a description file outside the repo reaches the page's live-rel
     let seen = "";
     res.setEncoding("utf8");
     res.on("data", (chunk) => (seen += chunk));
-    fs.writeFileSync(file, "Second.\n");
-    await until(() => seen.includes("event: change"), { what: "a change event for the description file" });
+    // macOS can drop events in a new watch's first moments, so edit again each second until one lands, as a person's later edits would.
+    for (let edit = 1; edit <= 5 && !seen.includes("event: change"); edit++) {
+      fs.writeFileSync(file, `Second.\n${"\n".repeat(edit)}`);
+      await until(() => seen.includes("event: change"), { timeout: 1000, what: "a change event" }).catch(() => {});
+    }
+    assert.ok(seen.includes("event: change"), "a change event for the description file");
     assert.match((await get("/api/description?branch=b")).description.html, /Second\./);
   } finally {
     events.destroy();
@@ -236,7 +240,7 @@ test("once warm, the stack carries each branch's size, so the sidebar needs no s
   await warmed;
   const { sizes } = await (await fetch(`${url}api/stack?branch=b`)).json();
   assert.deepEqual(Object.keys(sizes).sort(), ["a", "b"]);
-  assert.deepEqual(Object.keys(sizes.b).sort(), ["additions", "changed", "deletions", "files", "viewed"]);
+  assert.deepEqual(Object.keys(sizes.b).sort(), ["additions", "byKind", "changed", "deletions", "files", "viewed"]);
 });
 
 test("after a file changes, the checked-out branch's diff is computed again ahead of the page", async () => {

@@ -76,6 +76,8 @@ Keep description files outside the worktree or in a gitignored folder: an untrac
 
 The stack can carry one too, linked with `diffview describe --stack <file>` from any of its branches: what the stack is for and how its branches fit. The sidebar's **Overview** row shows it above every branch's title, first paragraph and size, and it takes comments like a branch's description. It belongs to the branches it was linked for, so it stays with the stack as branches are added on top or merge from the bottom. No stacking tool has a place for it in a PR, so `--print` hands it to whatever does.
 
+Tests and generated files start hidden and stay out of every count until you turn them on with the **Tests** and **Generated** toggles above the file list. Generated files are the ones `.gitattributes` marks `linguist-generated` or `linguist-vendored`, plus lockfiles, protobuf output, minified bundles and snapshots; tests are marked `diffview-test` or have test-shaped paths. Set an attribute to false (`-linguist-generated`) to override the guess. A file with an open comment always shows.
+
 Mark a file **Viewed** to collapse it. When its diff changes, the mark clears and it shows **Changed since viewed**.
 
 Comments live in `~/.diffview/diffview.sqlite3` (set `DIFFVIEW_HOME` to move it), keyed by each repo's git common dir and branch name, so every worktree of a repo shares them. Deleting is permanent and only in the page. [`skills/diffview-comments/SKILL.md`](skills/diffview-comments/SKILL.md) teaches an agent this loop. Copy it into your agent's skills folder.

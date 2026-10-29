@@ -209,6 +209,57 @@ test("v marks the whole branch viewed, and the stack shows which branches are vi
   assert.deepEqual(page.errors, []);
 });
 
+test("tests and generated files start hidden and uncounted, toggle back in, and a comment brings one into view", options, async () => {
+  const repo = makeRepo();
+  repo.write(".gitattributes", "docs/api.md linguist-generated\n");
+  repo.commit("attributes", { ".gitattributes": "docs/api.md linguist-generated\n" });
+  repo.git("checkout", "-q", "-b", "feat/a");
+  repo.commit("a", { "src/app.js": "one\n", "src/app.test.js": "test one\ntest two\n", "docs/api.md": "generated\n" });
+  await ensureVendorBundle();
+  const started = await startServer({ dir: repo.dir, port: 4960, store: await openStore(fs.mkdtempSync(path.join(os.tmpdir(), "diffview-kinds-"))) });
+  servers.push(started);
+  const page = await (await chrome()).open(`${started.url}view`, { width: 1700, height: 950 });
+  const view = () =>
+    page.eval(() => ({
+      tree: [...document.querySelectorAll("#tree .file-name")].map((f) => f.textContent),
+      diffs: [...document.querySelectorAll(".file-diff")].map((s) => s.dataset.path),
+      head: document.querySelector(".branch-meta").textContent.replace(/\s+/g, " "),
+      size: document.querySelector('.stack-row[data-branch="feat/a"] .stack-size')?.textContent,
+      toggles: [...document.querySelectorAll(".kind-toggle")].map((t) => `${t.textContent}:${t.getAttribute("aria-pressed")}`),
+    }));
+  await page.waitFor(() => document.querySelector(".file-diff") && document.querySelector(".branch-meta") && document.querySelector('.stack-row[data-branch="feat/a"] .stack-size .add'), {
+    what: "the diff, its header and the stack's sizes",
+  });
+  let shown = await view();
+  assert.deepEqual([shown.tree, shown.diffs, shown.size, shown.toggles], [["app.js"], ["src/app.js"], "+1 −0", ["Tests 1:false", "Generated 1:false"]]);
+  assert.match(shown.head, /1 file \+1 −0 \(2 hidden\)/);
+  assert.match(await page.eval(() => document.querySelector(".hidden-files").textContent), /1 test file and 1 generated file hidden/);
+
+  await page.eval(() => document.querySelector('.kind-toggle[data-show-kind="test"]').click());
+  shown = await view();
+  assert.deepEqual([shown.tree, shown.diffs, shown.size], [["app.js", "app.test.js"], ["src/app.js", "src/app.test.js"], "+3 −0"]);
+  assert.match(shown.head, /2 files \+3 −0 \(1 hidden\)/);
+  assert.equal(await page.eval(() => localStorage.getItem("diffview.showKinds")), '["test"]', "the choice is kept for the next visit");
+  await page.eval(() => document.querySelector('.hidden-files [data-show-kind="generated"]').click());
+  assert.equal((await view()).diffs.length, 3, "the note's button shows the generated file");
+
+  await page.eval(() => document.querySelector('.kind-toggle[data-show-kind="test"]').click());
+  await page.eval(() => document.querySelector('.kind-toggle[data-show-kind="generated"]').click());
+  assert.deepEqual((await view()).diffs, ["src/app.js"]);
+  const diff = await (await fetch(`${started.url}api/diff?branch=feat%2Fa`)).json();
+  const origin = started.url.replace(/\/$/, "");
+  const created = await fetch(`${origin}/api/comments`, {
+    method: "POST",
+    headers: { origin, "content-type": "application/json" },
+    body: JSON.stringify({ branch: "feat/a", sha: diff.sha, kind: "lines", path: "src/app.test.js", side: "new", startLine: 2, endLine: 2, body: "Why two?" }),
+  });
+  assert.equal(created.status, 201);
+  await page.waitFor(() => document.querySelector('.file-diff[data-path="src/app.test.js"]'), { what: "the commented test file to come into view" });
+  shown = await view();
+  assert.match(shown.head, /1 file \+1 −0 \(2 hidden\)/, "shown for its comment, still not counted");
+  assert.deepEqual(page.errors, []);
+});
+
 test("the agent's description shows above the diff, and selected text in it takes a comment", options, async () => {
   const { page, home, started } = await openViewer();
   assert.match(await page.eval(() => document.querySelector("#description").innerText), /No description yet/);

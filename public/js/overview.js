@@ -4,6 +4,7 @@
  * the stack with its title, first paragraph and size, in the sidebar's order.
  */
 import { cleanUpViews } from "./diffs.js";
+import { shownSize } from "./kinds.js";
 import { escapeHtml } from "./lib/format.js";
 import { stackRows } from "./lib/tree.js";
 import { $, state } from "./state.js";
@@ -13,7 +14,8 @@ function sum(branches, key) {
 }
 
 export function renderOverview() {
-  const { branches, entry } = state.overview;
+  const { entry } = state.overview;
+  const branches = state.overview.branches.map((b) => ({ ...b, ...shownSize(b) }));
   const { trunk } = state.stack;
   $("#branch-head").innerHTML = `
     <h1>Stack overview</h1>
