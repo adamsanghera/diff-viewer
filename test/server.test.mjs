@@ -1,7 +1,11 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import http from "node:http";
+import os from "node:os";
+import path from "node:path";
 import { startServer } from "../lib/server.mjs";
+import { openStore } from "../lib/store.mjs";
 import { makeRepo } from "./helpers/repo.mjs";
 
 /** main <- a <- b, with b checked out. */
@@ -71,6 +75,25 @@ test("requests naming another host, or writing, are refused", async () => {
   assert.deepEqual([unknown.status, unknown.body.error], [400, "No local branch named nope."]);
   const page = await get("/view");
   assert.match(page.headers.get("content-security-policy"), /script-src http:\/\/127\.0\.0\.1:\d+\/static\/js\/ http:\/\/127\.0\.0\.1:\d+\/vendor\//);
+});
+
+test("the doorbell rings when another process writes to the store", async () => {
+  const repo = stackRepo();
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "diffview-doorbell-"));
+  const started = await startServer({ dir: repo.dir, port: 4900, store: await openStore(home) });
+  servers.push(started);
+  const rang = new Promise((resolve, reject) => {
+    http.get({ host: "127.0.0.1", port: started.port, path: "/api/store-events" }, (res) => {
+      res.setEncoding("utf8");
+      res.on("data", (chunk) => chunk.includes("event: change") && (res.destroy(), resolve(Date.now())));
+    }).on("error", reject);
+  });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  const other = await openStore(home);
+  const { patch } = await (await fetch(`${started.url}api/diff?branch=b`)).json();
+  const wrote = Date.now();
+  other.createThread({ repo: started.repo.commonDir, entry: "b", snapshot: { base: "x", head: "y", patch }, kind: "branch", body: "hi", author: { name: "adam", kind: "human" } });
+  assert.ok((await rang) - wrote < 500);
 });
 
 test("static files cannot climb out of their folder", async () => {

@@ -1,17 +1,24 @@
 #!/usr/bin/env -S node --disable-warning=ExperimentalWarning
 import { spawn } from "node:child_process";
 import { parseArgs } from "node:util";
+import { runComments } from "../lib/comments-cli.mjs";
+import { register } from "../lib/registry.mjs";
 import { startServer } from "../lib/server.mjs";
 import { SOURCES } from "../lib/stack.mjs";
+import { openStore, storeHome } from "../lib/store.mjs";
 import { ensureVendorBundle } from "../lib/vendor.mjs";
+
+if (process.argv[2] === "comments") process.exit(await runComments(process.argv.slice(3)));
 
 const SOURCE_NAMES = SOURCES.map((s) => s.name);
 
 const USAGE = `Usage: diffview [repo-dir] [options]
+       diffview comments <verb> [options]
 
 Opens the stack of the checked-out branch in a local diff viewer: every
 branch from trunk to the top, each with its own diff. Stacks made with
-Graphite, Origin, gh stack, or plain git branches all work.
+Graphite, Origin, gh stack, or plain git branches all work. "diffview
+comments --help" lists the verbs agents use to read and answer comments.
 
 Options:
   -b, --branch <name>        Open this branch's stack instead of the checked-out one.
@@ -54,11 +61,21 @@ const port = values.port === undefined ? undefined : Number(values.port);
 if (port !== undefined && !(Number.isInteger(port) && port > 0 && port < 65536)) fail(`--port must be a port number, not ${values.port}`);
 
 await ensureVendorBundle();
+const store = await openStore().catch((err) => {
+  console.error(`diffview: comments are off because the comment store did not open: ${err.message}`);
+  return null;
+});
 let started;
 try {
-  started = await startServer({ dir: positionals[0] ?? ".", initialBranch: values.branch ?? null, source: source ?? null, port });
+  started = await startServer({ dir: positionals[0] ?? ".", initialBranch: values.branch ?? null, source: source ?? null, port, store });
 } catch (err) {
   fail(err.message);
 }
 console.log(`diffview serving ${started.repo.top}\n  ${started.url}`);
+if (store) {
+  const unregister = register(storeHome(), { port: started.port, root: started.repo.top });
+  process.on("exit", unregister);
+  // SIGHUP stays default, so a viewer started under nohup keeps running when its terminal goes.
+  for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => process.exit(0));
+}
 if (!values["no-open"]) spawn("open", [started.url], { stdio: "ignore", detached: true }).unref();
