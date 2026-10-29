@@ -236,7 +236,7 @@ test("once warm, the stack carries each branch's size, so the sidebar needs no s
   await warmed;
   const { sizes } = await (await fetch(`${url}api/stack?branch=b`)).json();
   assert.deepEqual(Object.keys(sizes).sort(), ["a", "b"]);
-  assert.deepEqual(Object.keys(sizes.b).sort(), ["additions", "deletions", "files"]);
+  assert.deepEqual(Object.keys(sizes.b).sort(), ["additions", "changed", "deletions", "files", "viewed"]);
 });
 
 test("after a file changes, the checked-out branch's diff is computed again ahead of the page", async () => {

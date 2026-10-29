@@ -170,6 +170,7 @@ export function renderComments({ annotationsChanged = false } = {}) {
   paintDescription(placedThreads().filter((t) => t.kind === "description"), state.comments.active, markOf);
   renderBranchThreads();
   renderRail();
+  renderBranchViewed();
 }
 
 function renderHeader() {
@@ -456,7 +457,47 @@ async function setViewed(item, viewed) {
     item.view.setOptions(item.options);
     item.view.rerender();
     commentHooks.renderTree();
+    renderBranchViewed();
     if (viewed) item.section.scrollIntoView({ block: "nearest" });
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+/** Whether every file of the branch shown is viewed as it reads now. */
+function branchViewed() {
+  const files = state.diff?.files ?? [];
+  return files.length > 0 && files.every((f) => viewedState(f) === "viewed");
+}
+
+/** The branch header's toggle for marking the whole branch viewed (v). */
+export function renderBranchViewed() {
+  const slot = $("#branch-viewed");
+  if (!slot) return;
+  const files = state.diff?.files ?? [];
+  if (!state.comments.enabled || state.overview || state.version?.old || !files.length) {
+    slot.innerHTML = "";
+    return;
+  }
+  const viewed = branchViewed();
+  slot.innerHTML = `<button class="btn btn-viewed${viewed ? " is-viewed" : ""}" type="button" data-branch-viewed title="${viewed ? "Clear every file's viewed mark (v)" : "Mark every file viewed, collapsing them until they change (v)"}">${viewed ? "✓ Branch viewed" : "Mark branch viewed"}</button>`;
+}
+
+/** Marks every file of the branch shown viewed, or clears them all when it already is. */
+export async function toggleBranchViewed() {
+  if (!state.comments.enabled || state.overview || !state.diff?.files.length) return;
+  const viewed = !branchViewed();
+  try {
+    const result = await postJson("/api/viewed/branch", { branch: state.branch, stack: state.stackOf, viewed });
+    state.comments.viewed = result.viewed;
+    for (const item of state.views) {
+      item.options = { ...item.options, collapsed: viewed };
+      item.view.setOptions(item.options);
+      item.view.rerender();
+    }
+    commentHooks.renderTree();
+    renderBranchViewed();
+    if (viewed) scrollTo(0, 0);
   } catch (err) {
     toast(err.message);
   }

@@ -42,6 +42,15 @@ function overviewRow() {
     <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10M3 8h10M3 12h6"/></svg><span class="name">Overview</span>${commentBadge(state.stack.comments?.[state.stack.stackEntry])}</a></li>`;
 }
 
+/** How much of a branch is viewed, for its line in the stack: {done, html}, from its size's viewed and changed file counts. */
+function viewedProgress(size) {
+  if (!size?.files) return { done: false, html: "" };
+  if (size.viewed === size.files) return { done: true, html: '<span class="stack-viewed-mark" title="Every file viewed">✓ viewed</span>' };
+  if (size.changed) return { done: false, html: `<span class="stack-changed" title="${size.changed} changed since you viewed them">↻ changed</span>` };
+  if (size.viewed) return { done: false, html: `<span title="Files viewed">${size.viewed}/${size.files} viewed</span>` };
+  return { done: false, html: "" };
+}
+
 export function renderStack() {
   const { entries, trunk } = state.stack;
   const checkedOut = state.stack.checkedOut;
@@ -57,8 +66,9 @@ export function renderStack() {
     const active = !state.overview && entry.id === state.branch ? " active" : "";
     const top = index === 0 ? " stack-top" : "";
     const size = state.stackSizes?.[entry.id];
-    const sizeText = size ? `<span class="add">+${size.additions}</span> <span class="del">−${size.deletions}</span>` : "";
-    return `<li><a class="stack-row${top}${active}" href="?${new URLSearchParams({ branch: entry.id, stack: state.stackOf })}" data-branch="${escapeHtml(entry.id)}" style="--depth:${depth}" title="${escapeHtml(entry.id)} (from ${escapeHtml(entry.source)})">
+    const viewed = viewedProgress(size);
+    const sizeText = size ? `<span class="add">+${size.additions}</span> <span class="del">−${size.deletions}</span>${viewed.html ? ` · ${viewed.html}` : ""}` : "";
+    return `<li><a class="stack-row${top}${active}${viewed.done ? " stack-viewed" : ""}" href="?${new URLSearchParams({ branch: entry.id, stack: state.stackOf })}" data-branch="${escapeHtml(entry.id)}" style="--depth:${depth}" title="${escapeHtml(entry.id)} (from ${escapeHtml(entry.source)})">
       <span class="dot"></span><span class="stack-label"><span class="name">${escapeHtml(entry.id.slice(prefix.length))}</span><span class="stack-size">${sizeText}</span></span>${badges}</a></li>`;
   });
   rows.push(`<li><span class="stack-row trunk"><span class="dot"></span><span class="name">${escapeHtml(trunk ?? "trunk")}</span></span></li>`);

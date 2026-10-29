@@ -33,6 +33,7 @@ diffview --port 5000 --no-open   # first port to try, and no browser tab
 | `j` `k` | the next or previous file |
 | `s` | Auto, Split, or Unified: Auto splits when the pane is wide enough |
 | `i` | threads in the margin, or inline under their lines |
+| `v` | mark the whole branch viewed, or clear it |
 | `f` | show or hide the stack and file list |
 | `/` | filter files |
 

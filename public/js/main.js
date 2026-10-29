@@ -12,7 +12,7 @@
  * the rest.
  */
 import { renderBranchHead } from "./branch-head.js";
-import { commentHooks, composerOpen, initComments, loadComments, renderComments, scheduleLayout, threadsInline } from "./comments.js";
+import { commentHooks, composerOpen, initComments, loadComments, renderComments, scheduleLayout, threadsInline, toggleBranchViewed } from "./comments.js";
 import { renderDescription } from "./description.js";
 import { renderOverview } from "./overview.js";
 import { applyLayout, renderFiles, rerenderFiles, setLayout } from "./diffs.js";
@@ -229,6 +229,7 @@ async function main() {
   $("#diffs").addEventListener("click", followBranchLink);
   $("#branch-head").addEventListener("click", (event) => {
     if (event.target.closest("[data-latest]")) show(state.branch, { push: false });
+    if (event.target.closest("[data-branch-viewed]")) toggleBranchViewed();
   });
   $("#tree").addEventListener("click", (event) => {
     const link = event.target.closest("a[data-index]");

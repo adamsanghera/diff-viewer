@@ -20,6 +20,7 @@ export function renderBranchHead() {
       · from ${escapeHtml(entry.source)}
       ${entry.needsRestack ? '<span class="badge badge-warn">needs restack</span>' : ""}
       ${uncommitted ? '<span class="badge badge-head" title="Includes edits not yet committed">uncommitted changes</span>' : ""}
+      <span id="branch-viewed"></span>
     </p>`;
   $("#comment-branch").hidden = !state.comments.enabled;
   $("#comment-branch").textContent = "Comment on the whole branch";
