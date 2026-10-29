@@ -23,15 +23,15 @@ When a stack is ready for the human to review:
 
 1. Write and link each branch's description file, and the stack's (see
    Descriptions below).
-2. From the repo, start the viewer in a background shell:
-   `diffview --no-open -b <top branch>`. It prints a link. When a viewer
-   already serves this checkout, it prints that viewer's link and exits, so
-   running it again is harmless.
-3. Give the human the link. It opens the whole stack; the sidebar moves
-   between branches, and its Overview row shows the stack's description.
-4. Wait for their comments with `diffview comments wait --timeout 4h` in
-   another background shell, and work through what it returns (the loop
-   below).
+2. From the repo, with the stack's top branch checked out, run
+   `diffview review` in a background shell. It lists anything still
+   missing a description, starts a viewer for this checkout (or reuses the
+   one running), prints a link to the stack's Overview, and then waits for
+   comments (4h by default).
+3. Give the human the link as soon as it prints.
+4. When comments arrive, `review` prints them in full and exits; work
+   through them (the loop below), then run `diffview review --after <n>`
+   again, with the `--after` it printed last, to hand the stack back.
 
 ## The loop
 
@@ -138,8 +138,10 @@ description under "..."` or `the whole stack`.
   in review: `diffview comments add --file <path> --line <n>[-<m>] -m "..."`,
   `--file <path>` alone for a whole file, or `--whole-branch`. Say why, not
   what: the diff already shows what.
-- `diffview comments wait` returns the moment anything in scope waits on
-  you, printing those threads in full (exit 0), or exits 3 at its timeout
-  (`--timeout 30m` by default). It has no cursor: answer every thread
-  waiting on you before you wait again, or the same threads return at once.
-  The human may batch comments, so one wake can bring several.
+- `diffview comments wait` (which `review` runs) returns the moment
+  anything in scope waits on you, printing those threads in full and a
+  last line `Next: diffview comments wait --after <n>` (exit 0), or exits 3
+  at its timeout. Without `--after` it returns at once while any thread
+  waits on you; with the `--after` it printed, only threads with something
+  newer wake it, so a thread you leave waiting on purpose does not. The
+  human may batch comments, so one wake can bring several.

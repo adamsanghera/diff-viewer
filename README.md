@@ -40,6 +40,12 @@ When a branch is recorded by several stacking tools, the one that touched it las
 
 ## Comments for agents
 
+An agent hands you a stack with one command, run in the background from the repo:
+
+```bash
+diffview review   # lists missing descriptions, starts or reuses a viewer, prints the stack's link, waits for comments
+```
+
 Click a line number to comment on that line (shift-click or drag for a range), or use a file header's **Comment** for the whole file. Threads float in the margin beside their lines, tinted by whose turn it is, and the agent answers from a terminal in the repo:
 
 ```bash
@@ -48,7 +54,7 @@ diffview comments show 12 15                       # threads in full, with the l
 diffview comments reply 12 -m "Which helper should this use?"
 diffview comments suggest-resolve 12 --from why.md # long messages from a file you can edit first
 diffview comments apply --from actions.json        # [{"reply": 12, "message": "..."}, {"suggestResolve": 15, "message": "..."}]
-diffview comments wait                             # returns the moment anything here waits on the agent
+diffview comments wait --after 41                  # returns the moment anything newer than message 41 waits on the agent
 ```
 
 Agents reply and suggest that a thread is resolved. Only you resolve or reopen one, in the page, or with `--human` in a terminal. **Start batch** (or Alt+Enter) holds comments as pending, invisible to agents, until **Send**, so an agent wakes once. Live reload waits while you write a comment, so lines never move under it.

@@ -194,6 +194,59 @@ test("wait returns at once when something waits, wakes on a new comment, and tim
   assert.equal(ctx.cli("wait", "--timeout", "1s").status, 0, "a thread still waiting returns at once");
 });
 
+test("wait --after skips threads with nothing newer, so a thread left waiting does not wake it", async () => {
+  const ctx = setup();
+  const left = await humanComment(ctx, { entry: "feat/b", path: "src/app.js", startLine: 3, body: "Left waiting on purpose" });
+  const first = ctx.cli("wait", "--timeout", "1s");
+  const cursor = /Next: diffview comments wait --after (\d+)\n$/.exec(first.out)?.[1];
+  assert.ok(cursor, first.out);
+
+  const quiet = ctx.cli("wait", "--timeout", "1s", "--after", cursor);
+  assert.equal(quiet.status, 3, "the thread left waiting has nothing newer");
+  assert.match(quiet.out, new RegExp(`Next: diffview comments wait --after ${cursor}\\n$`));
+
+  const fresh = await humanComment(ctx, { entry: "feat/a", path: "src/app.js", startLine: 2, body: "New" });
+  const woke = ctx.cli("wait", "--timeout", "1s", "--after", cursor);
+  assert.equal(woke.status, 0);
+  assert.match(woke.out, new RegExp(`#${fresh} open`));
+  assert.doesNotMatch(woke.out, new RegExp(`#${left} open`));
+  assert.ok(Number(/--after (\d+)\n$/.exec(woke.out)[1]) > Number(cursor));
+  assert.match(ctx.cli("list", "--after", "x").err, /--after must be a message id/);
+});
+
+test("review lists what lacks a description, starts one viewer, links the Overview, and waits", async (t) => {
+  const ctx = setup();
+  const env = { ...process.env, DIFFVIEW_HOME: ctx.home, DIFFVIEW_AUTHOR: "spec-agent" };
+  const review = (...args) => spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", BIN, "review", ...args], { cwd: ctx.repo.dir, env, encoding: "utf8" });
+  t.after(() => {
+    for (const file of fs.readdirSync(path.join(ctx.home, "servers"), { withFileTypes: true })) {
+      if (!file.name.endsWith(".json")) continue;
+      const { pid } = JSON.parse(fs.readFileSync(path.join(ctx.home, "servers", file.name), "utf8"));
+      try {
+        process.kill(pid);
+      } catch {}
+    }
+  });
+
+  const first = review("--no-wait");
+  assert.equal(first.status, 0, first.stderr);
+  assert.match(first.stdout, /No description yet for feat\/a: diffview describe --branch feat\/a <file>\n/);
+  assert.match(first.stdout, /No description yet for feat\/b: /);
+  assert.match(first.stdout, /No description yet for the stack: diffview describe --stack <file>\n/);
+  assert.match(first.stdout, /Started a viewer of .* \(pid \d+; output in .*viewer-.*\.log\)/);
+  const link = /\n {2}(http:\S+)\n$/.exec(first.stdout)?.[1];
+  assert.match(link, /\/view\?stack=feat%2Fb&overview=$/);
+  assert.equal((await fetch(link)).status, 200);
+
+  const second = review("--no-wait");
+  assert.match(second.stdout, /A viewer already serves .* \(pid \d+\)\./);
+  assert.ok(second.stdout.endsWith(`${link}\n`), "the same viewer, the same link");
+
+  const waited = review("--timeout", "1s");
+  assert.equal(waited.status, 3);
+  assert.match(waited.stdout, /waiting for comments on the stack of feat\/b \{next:1m\}\n.*Nothing waited on the agent/s);
+});
+
 test("a pending comment wakes nobody until the batch is sent", async () => {
   const ctx = setup();
   await humanComment(ctx, { entry: "feat/b", path: "src/app.js", startLine: 3, body: "Draft", pending: true });
