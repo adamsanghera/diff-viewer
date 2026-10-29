@@ -142,13 +142,15 @@ test("a stored version can be read back while the branch moves on", async () => 
   assert.deepEqual((await get("/api/versions?branch=b")).versions.map((v) => v.seq), [2, 1]);
 });
 
-test("a description renders without raw HTML, and the page comments on its text", async () => {
+test("a description renders from its file without raw HTML, and the page comments on its text", async () => {
   const repo = stackRepo();
   const { post, get, store, repo: served } = await serveWithStoreAndHandle(repo);
   assert.equal((await get("/api/description?branch=b")).description, null);
-  const written = store.setDescription(served.commonDir, "b", { title: "Two", body: "## Why\n\nWe need *two*.\n\n<script>alert(1)</script>\n" }, { name: "agent", kind: "agent" });
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "diffview-desc-")), "b.md");
+  fs.writeFileSync(file, "---\ntitle: Two\n---\n## Why\n\nWe need *two*.\n\n<script>alert(1)</script>\n");
+  const written = store.linkDescription(served.commonDir, "b", file, { name: "agent", kind: "agent" });
   const { description } = await get("/api/description?branch=b");
-  assert.equal(description.title, "Two");
+  assert.deepEqual([description.title, description.path], ["Two", file]);
   assert.match(description.html, /<h2 data-block="0">Why<\/h2>/);
   assert.match(description.html, /<p data-block="1">We need <em>two<\/em>\.<\/p>/);
   assert.doesNotMatch(description.html, /<script>/);
@@ -158,6 +160,31 @@ test("a description renders without raw HTML, and the page comments on its text"
   const { threads } = await get(`/api/comments?branch=b&sha=${diff.sha}&descriptionSha=${written.sha256}`);
   assert.deepEqual([threads[0].kind, threads[0].state, threads[0].blockIndex, threads[0].start], ["description", "current", 1, 3]);
   assert.equal((await post("/api/comments", { branch: "b", sha: diff.sha, kind: "description", descriptionSha: "stale", blockIndex: 1, body: "x" })).status, 400);
+
+  fs.rmSync(file);
+  const missing = (await get("/api/description?branch=b")).description;
+  assert.deepEqual([missing.missing, missing.reason, missing.html], [true, "no file there", undefined]);
+});
+
+test("an edit to a description file outside the repo reaches the page's live-reload stream", async () => {
+  const repo = stackRepo();
+  const { get, store, repo: served, port } = await serveWithStoreAndHandle(repo);
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "diffview-desc-")), "b.md");
+  fs.writeFileSync(file, "First.\n");
+  store.linkDescription(served.commonDir, "b", file, { name: "agent", kind: "agent" });
+  await get("/api/description?branch=b");
+  const events = http.get({ host: "127.0.0.1", port, path: "/api/events" });
+  try {
+    const res = await new Promise((resolve) => events.on("response", resolve));
+    let seen = "";
+    res.setEncoding("utf8");
+    res.on("data", (chunk) => (seen += chunk));
+    fs.writeFileSync(file, "Second.\n");
+    await until(() => seen.includes("event: change"), { what: "a change event for the description file" });
+    assert.match((await get("/api/description?branch=b")).description.html, /Second\./);
+  } finally {
+    events.destroy();
+  }
 });
 
 test("the doorbell rings when another process writes to the store", async () => {

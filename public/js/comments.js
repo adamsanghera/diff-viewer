@@ -145,7 +145,7 @@ export function clickedLine(item, props) {
 export async function loadComments() {
   if (!state.comments.enabled || !state.diff) return;
   const params = new URLSearchParams({ branch: state.branch, sha: state.diff.sha });
-  if (state.description) params.set("descriptionSha", state.description.sha256);
+  if (state.description?.sha256) params.set("descriptionSha", state.description.sha256);
   const data = await getJson(`/api/comments?${params}`);
   const before = JSON.stringify([state.comments.threads, state.comments.viewed]);
   state.comments.threads = data.threads;

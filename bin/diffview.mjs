@@ -1,7 +1,8 @@
 #!/usr/bin/env -S node --disable-warning=ExperimentalWarning
 import { spawn } from "node:child_process";
 import { parseArgs } from "node:util";
-import { runComments, runDescribe } from "../lib/comments-cli.mjs";
+import { runComments } from "../lib/comments-cli.mjs";
+import { runDescribe } from "../lib/describe-cli.mjs";
 import { liveServers, register } from "../lib/registry.mjs";
 import { openRepo } from "../lib/repo.mjs";
 import { startServer } from "../lib/server.mjs";

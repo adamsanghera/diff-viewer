@@ -159,31 +159,58 @@ test("a pending comment wakes nobody until the batch is sent", async () => {
 });
 
 /** Runs `diffview describe` in the fixture repo. */
-function describe(ctx, input, ...args) {
+function describe(ctx, ...args) {
   const res = spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", BIN, "describe", ...args], {
     cwd: ctx.repo.dir,
     env: { ...process.env, DIFFVIEW_HOME: ctx.home, DIFFVIEW_AUTHOR: "spec-agent" },
     encoding: "utf8",
-    input,
   });
   return { status: res.status, out: res.stdout, err: res.stderr };
 }
 
-test("describe writes a branch's description, and prints it whole, as a body, or as a title", () => {
+/** Writes a description file outside the fixture repo and returns its path. */
+function descriptionFile(ctx, name, text) {
+  const file = path.join(ctx.home, "notes", name);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, text);
+  return file;
+}
+
+test("describe links a file as a branch's description, and prints it as the file reads now", () => {
   const ctx = setup();
-  assert.equal(describe(ctx, undefined).status, 1);
-  assert.match(describe(ctx, "## Why\n\nAdd add().\n", "--stdin", "--title", "Use add()").out, /Description of feat\/b is v1/);
-  assert.match(describe(ctx, undefined).out, /^feat\/b · description v1 · spec-agent .*\n\n# Use add\(\)\n\n## Why\n\nAdd add\(\)\.\n$/);
-  assert.equal(describe(ctx, undefined, "--print").out, "## Why\n\nAdd add().\n");
-  assert.equal(describe(ctx, undefined, "--print-title").out, "Use add()\n");
-  assert.match(describe(ctx, undefined, "--title", "Use add() everywhere").out, /v2/, "a new title keeps the body");
-  assert.equal(describe(ctx, undefined, "--print").out, "## Why\n\nAdd add().\n");
-  assert.equal(describe(ctx, undefined, "--branch", "nope", "-m", "x").status, 2);
+  assert.match(describe(ctx).err, /feat\/b has no description\. Link a Markdown file with: diffview describe <file>/);
+  const file = descriptionFile(ctx, "b.md", "---\ntitle: Use add()\n---\n## Why\n\nAdd add().\n");
+  assert.equal(describe(ctx, file).out, `Linked ${file} as the description of feat/b.\n`);
+  assert.match(describe(ctx).out, new RegExp(`^${file} · edited \\d\\d:\\d\\d\\n\\n# Use add\\(\\)\\n\\n## Why\\n\\nAdd add\\(\\)\\.\\n$`));
+  assert.equal(describe(ctx, "--print").out, "## Why\n\nAdd add().\n");
+  assert.equal(describe(ctx, "--print-title").out, "Use add()\n");
+  assert.equal(describe(ctx, "--path").out, `${file}\n`);
+
+  fs.writeFileSync(file, "---\ntitle: Use add() everywhere\n---\n## Why\n\nAdd add().\n");
+  assert.equal(describe(ctx, "--print-title").out, "Use add() everywhere\n", "an edit to the file is the description");
+  fs.rmSync(file);
+  assert.match(describe(ctx, "--print").err, /the description file of feat\/b is missing: .*b\.md \(no file there\)/);
+  assert.equal(describe(ctx, "--print").status, 1);
+
+  assert.equal(describe(ctx, "nope.md").status, 2);
+  assert.equal(describe(ctx, "--branch", "nope").status, 2);
+});
+
+test("describe warns when the file would show in the checked-out branch's diff", () => {
+  const ctx = setup();
+  ctx.repo.write("notes.md", "In the worktree, untracked.\n");
+  assert.match(describe(ctx, "notes.md").err, /notes\.md is untracked in the worktree, so it shows in the checked-out branch's diff/);
+  ctx.repo.write(".gitignore", ".notes/\n");
+  ctx.repo.write(".notes/b.md", "In a gitignored folder.\n");
+  const linked = describe(ctx, ".notes/b.md");
+  assert.equal(linked.err, "");
+  assert.equal(linked.status, 0);
 });
 
 test("a comment on the description shows in list and show with its paragraph", async () => {
   const ctx = setup();
-  describe(ctx, "## Why\n\nAdd add() so callers share it.\n", "--stdin");
+  const file = descriptionFile(ctx, "b.md", "## Why\n\nAdd add() so callers share it.\n");
+  describe(ctx, file);
   const opened = await openRepo(ctx.repo.dir);
   const stack = await loadStack(opened, { entry: "feat/b" });
   const entry = stack.entries.find((e) => e.id === "feat/b");
@@ -203,22 +230,24 @@ test("a comment on the description shows in list and show with its paragraph", a
   assert.match(ctx.cli("list").out, new RegExp(`#${id} open · waiting on agent · the description under "Why"`));
   const show = ctx.cli("show", String(id));
   assert.match(show.out, /In the description:\n {4}Add add\(\) so callers share it\./);
-  assert.match(show.out, /To change it: diffview describe --branch feat\/b --stdin/);
+  assert.match(show.out, new RegExp(`To change it: edit ${file}\\.`));
 });
 
-test("describe --stack writes the stack's description, readable from any of its branches", () => {
+test("describe --stack links the stack's description, readable from any of its branches", () => {
   const ctx = setup();
-  assert.match(describe(ctx, undefined, "--stack").err, /The stack of feat\/b has no description\. Write one with: diffview describe --stack/);
-  assert.match(describe(ctx, "Ship add() in two steps.\n", "--stack", "--stdin", "--title", "add()").out, /Description of the stack of feat\/b is v1/);
-  assert.match(describe(ctx, undefined, "--stack", "--branch", "feat/a").out, /^The stack of feat\/a · description v1 · spec-agent .*\n\n# add\(\)\n\nShip add\(\) in two steps\.\n$/);
-  assert.equal(describe(ctx, undefined, "--stack", "--print").out, "Ship add() in two steps.\n");
-  assert.equal(JSON.parse(describe(ctx, undefined, "--stack", "--json").out).entry, "stack:feat/a");
-  assert.equal(describe(ctx, undefined, "--print").status, 1, "the branch's own description is separate");
+  assert.match(describe(ctx, "--stack").err, /the stack of feat\/b has no description\. Link a Markdown file with: diffview describe --stack <file>/);
+  const file = descriptionFile(ctx, "stack.md", "---\ntitle: add()\n---\nShip add() in two steps.\n");
+  assert.equal(describe(ctx, "--stack", file).out, `Linked ${file} as the description of the stack of feat/b.\n`);
+  assert.match(describe(ctx, "--stack", "--branch", "feat/a").out, /\n\n# add\(\)\n\nShip add\(\) in two steps\.\n$/);
+  assert.equal(describe(ctx, "--stack", "--print").out, "Ship add() in two steps.\n");
+  assert.equal(JSON.parse(describe(ctx, "--stack", "--json").out).entry, "stack:feat/a");
+  assert.equal(describe(ctx, "--print").status, 1, "the branch's own description is separate");
 });
 
 test("a comment on the stack's description shows in list and show, with how to change it", async () => {
   const ctx = setup();
-  describe(ctx, "## Why\n\nShip add() in two steps.\n", "--stack", "--stdin");
+  const file = descriptionFile(ctx, "stack.md", "## Why\n\nShip add() in two steps.\n");
+  describe(ctx, "--stack", file);
   const opened = await openRepo(ctx.repo.dir);
   const store = await openStore(ctx.home);
   const { sha256 } = store.description(opened.commonDir, "stack:feat/a");
@@ -238,7 +267,7 @@ test("a comment on the stack's description shows in list and show, with how to c
   assert.match(list, new RegExp(`#${id} open · waiting on agent · the stack description under "Why"`));
   const show = ctx.cli("show", String(id)).out;
   assert.match(show, /· on the stack\n/);
-  assert.match(show, /To change it: diffview describe --stack --stdin < new-description\.md, from any branch in the stack\./);
+  assert.match(show, new RegExp(`To change it: edit ${file}\\.`));
   assert.match(ctx.cli("suggest-resolve", String(id), "-m", "Explained in the Why.").out, /the stack description under "Why"/);
 });
 
