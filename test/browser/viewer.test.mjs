@@ -36,6 +36,14 @@ test("the page shows the stack, the branch's files, and its diff", options, asyn
     removed: [...document.querySelector(".file-diff > *").shadowRoot.querySelectorAll('[data-line-type="change-deletion"]')].map((el) => el.textContent),
   }));
   assert.deepEqual(view.stack, ["Overview", "b", "a", "main"]);
+  const line = await page.eval(() =>
+    [...document.querySelectorAll("#stack .stack-row")].map((row) => {
+      const { content, top, bottom } = getComputedStyle(row, "::before");
+      const half = `${row.getBoundingClientRect().height / 2}px`;
+      return content === "none" ? "none" : `${top === half ? "mid" : "edge"}-${bottom === half ? "mid" : "edge"}`;
+    }),
+  );
+  assert.deepEqual(line, ["none", "mid-edge", "edge-edge", "edge-mid"], "a line runs from the top branch's dot down to trunk's");
   assert.equal(view.active, "b");
   assert.match(view.prefix, /^feat\//);
   assert.deepEqual(view.files, ["app.js"]);
