@@ -1,7 +1,7 @@
 #!/usr/bin/env -S node --disable-warning=ExperimentalWarning
 import { spawn } from "node:child_process";
 import { parseArgs } from "node:util";
-import { runComments } from "../lib/comments-cli.mjs";
+import { runComments, runDescribe } from "../lib/comments-cli.mjs";
 import { register } from "../lib/registry.mjs";
 import { startServer } from "../lib/server.mjs";
 import { SOURCES } from "../lib/stack.mjs";
@@ -9,11 +9,13 @@ import { openStore, storeHome } from "../lib/store.mjs";
 import { ensureVendorBundle } from "../lib/vendor.mjs";
 
 if (process.argv[2] === "comments") process.exit(await runComments(process.argv.slice(3)));
+if (process.argv[2] === "describe") process.exit(await runDescribe(process.argv.slice(3)));
 
 const SOURCE_NAMES = SOURCES.map((s) => s.name);
 
 const USAGE = `Usage: diffview [repo-dir] [options]
        diffview comments <verb> [options]
+       diffview describe [options]
 
 Opens the stack of the checked-out branch in a local diff viewer: every
 branch from trunk to the top, each with its own diff. Stacks made with

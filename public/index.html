@@ -56,14 +56,21 @@
     </aside>
     <main class="main" id="main">
       <div class="branch-head" id="branch-head"></div>
-      <div class="branch-actions"><button class="link" type="button" id="comment-branch" hidden>Comment on the whole branch</button></div>
-      <div class="branch-threads" id="branch-threads"></div>
       <div class="review">
-        <div class="diffs" id="diffs"></div>
+        <div class="review-main">
+          <section class="description" id="description" hidden></section>
+          <div class="branch-actions"><button class="link" type="button" id="comment-branch" hidden>Comment on the whole branch</button></div>
+          <div class="branch-threads" id="branch-threads"></div>
+          <div class="diffs" id="diffs"></div>
+        </div>
         <aside class="rail" id="rail" aria-label="Comments"></aside>
       </div>
     </main>
   </div>
+  <button class="comment-btn" id="comment-btn" type="button" hidden>
+    <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2.5h9A1.5 1.5 0 0 1 14 4v5.5a1.5 1.5 0 0 1-1.5 1.5H8.5l-3 2.5V11h-2A1.5 1.5 0 0 1 2 9.5V4a1.5 1.5 0 0 1 1.5-1.5z"/></svg>
+    Comment
+  </button>
   <div class="composer" id="composer" hidden>
     <p class="composer-where" id="composer-where"></p>
     <textarea id="composer-text" rows="2" placeholder="Leave a comment for the agent…" aria-label="Comment"></textarea>
