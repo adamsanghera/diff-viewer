@@ -28,8 +28,23 @@
   --radius-pill: 999px;
   --shadow-md: 0 6px 20px rgba(15, 23, 42, 0.14);
 
+  --on-accent: #ffffff;
+  --code-bg: #f6f8fa;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.18);
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+
+  /* What a comment's color says, on its card, chips and tinted lines (comments.js ROW_MARK_CSS repeats these for Pierre's shadow roots). */
+  --state-open: #d4a72c;
+  --state-suggested: var(--success);
+  --state-outdated: var(--warning);
+  --state-turn: var(--accent);
+
   --topbar: 48px;
   --sidebar-width: 300px;
+  --rail-width: 300px;
+  --rail-gap: 16px;
   --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
   color-scheme: light;
@@ -53,6 +68,11 @@
   --warning-soft: rgba(210, 153, 34, 0.15);
   --danger: #f85149;
   --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --on-accent: #0f1216;
+  --code-bg: #161b22;
+  --state-open: #bb8009;
   color-scheme: dark;
 }
 
@@ -206,6 +226,145 @@ a.stack-row:hover { background: var(--hover); }
 .open-editor { font-size: var(--text-sm); text-decoration: none; }
 .empty, .error { color: var(--text-soft); }
 .error { color: var(--danger); }
+
+/* The review area: diffs, and the comment rail beside them when it is docked. */
+
+.review { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; }
+.rail-docked .review { grid-template-columns: minmax(0, 1fr) var(--rail-width); column-gap: var(--rail-gap); }
+.rail { display: none; }
+.rail-docked .rail { display: block; position: relative; }
+.rail.listing { position: sticky; top: calc(var(--topbar) + 8px); max-height: calc(100vh - var(--topbar) - 16px); overflow-y: auto; padding-bottom: 40px; }
+.rail:not(.listing) .thread { position: absolute; left: 0; right: 0; }
+.listing .thread + .thread { margin-top: 10px; }
+.rail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; font-size: var(--text-sm); color: var(--text-faint); }
+.rail-group { margin: 18px 0 8px; font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint); }
+.rail-group span { font-weight: 400; }
+.rail-empty { font-size: var(--text-md); color: var(--text-faint); }
+
+.branch-actions { margin: -10px 0 12px; font-size: var(--text-sm); }
+.branch-threads { display: grid; gap: 10px; max-width: 720px; margin-bottom: 16px; }
+.branch-threads:empty { display: none; }
+.inline-thread { padding: 8px 12px; max-width: 720px; font-family: var(--font); white-space: normal; }
+
+/* Thread cards (from mdview) */
+
+.thread {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  font-size: var(--text-md);
+  line-height: 1.5;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: box-shadow 120ms, border-color 120ms;
+}
+.thread:hover { border-color: var(--border-strong); }
+.thread.expanded { z-index: 2; border-color: var(--border-strong); box-shadow: var(--shadow-md); cursor: default; }
+.thread[data-status="open"] { border-left: 3px solid var(--state-open); }
+.thread[data-status="suggested"] { border-left: 3px solid var(--state-suggested); }
+.thread[data-status="open"][data-turn="human"] { border-left: 3px solid var(--state-turn); }
+.thread[data-pending="true"] { border-style: dashed; border-left-color: var(--text-faint); }
+.thread[data-status="resolved"] { opacity: 0.75; }
+.thread-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; font-size: var(--text-sm); color: var(--text-faint); }
+.thread-id { font-variant-numeric: tabular-nums; }
+.thread-where { font-family: var(--mono); font-size: var(--text-xs); color: var(--text-soft); }
+.chip-suggested { color: var(--state-suggested); }
+.chip-pending { border-style: dashed; }
+.chip-turn { color: var(--state-turn); }
+.chip-outdated { color: var(--state-outdated); }
+.thread-excerpt { margin: 0 0 8px; padding: 4px 8px; border-left: 2px solid var(--state-open); background: var(--code-bg); font: var(--text-sm) / 1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 7.5em; overflow: hidden; }
+.now-reads { margin: 0 0 8px; font-size: var(--text-sm); color: var(--text-soft); overflow-wrap: anywhere; }
+.now-reads strong { color: var(--text); font-weight: 600; }
+.messages { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.message-meta { display: flex; align-items: baseline; gap: 6px; font-size: var(--text-sm); color: var(--text-faint); }
+.message-meta .author { font-weight: 600; color: var(--text); }
+.message-meta .when { margin-left: auto; white-space: nowrap; }
+.message-meta .badge { line-height: 16px; font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent); background: var(--accent-soft); border-color: transparent; }
+.message-meta .badge-pending { color: var(--text-soft); background: var(--bg-soft); }
+.message-body { overflow-wrap: anywhere; }
+.message-body > :first-child { margin-top: 0; }
+.message-body > :last-child { margin-bottom: 0; }
+.message-body p, .message-body ul, .message-body ol { margin: 4px 0; }
+.message-body ul, .message-body ol { padding-left: 1.3em; }
+.message-body code, .now-reads code { font-family: var(--mono); font-size: 0.9em; padding: 0.1em 0.3em; border-radius: var(--radius-xs); background: var(--code-bg); }
+.message-body pre { overflow-x: auto; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--code-bg); font-size: var(--text-sm); }
+.message-body pre code { padding: 0; background: none; }
+.thread:not(.expanded) .message-body { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.message.more { font-size: var(--text-sm); color: var(--text-faint); }
+.message-delete { display: none; padding: 0 5px; border-radius: var(--radius-xs); font-size: var(--text-lg); line-height: 1.2; color: var(--text-faint); }
+.thread.expanded .message:hover .message-delete { display: inline-block; }
+.message-delete:hover { color: var(--danger); }
+
+/* Composer, replies and buttons */
+
+.composer {
+  position: absolute;
+  z-index: 30;
+  width: 360px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--bg);
+  box-shadow: var(--shadow-lg);
+}
+.composer-where { margin: 0; font-size: var(--text-sm); color: var(--text-soft); font-family: var(--mono); }
+.thread textarea, .composer textarea {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  font: inherit;
+  font-size: var(--text-md);
+  color: var(--text);
+  resize: none;
+}
+.thread textarea:focus, .composer textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+.thread-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+.thread-actions .spacer { flex: 1; }
+.key-hint { margin: 4px 2px 0; font-size: var(--text-xs); color: var(--text-faint); }
+.link { color: var(--accent); padding: 0; }
+.link:hover { text-decoration: underline; }
+.btn { padding: 4px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg); font-size: var(--text-sm); color: var(--text); }
+.btn:hover { background: var(--hover); }
+.btn-primary { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { background: color-mix(in srgb, var(--accent) 88%, black); }
+.btn-danger { color: var(--danger); }
+
+/* Header: batch, comments button, versions */
+
+.batch { display: inline-flex; align-items: center; gap: 6px; }
+.batch[hidden] { display: none; }
+.batch-count { font-size: var(--text-sm); color: var(--text-soft); white-space: nowrap; }
+.comments-btn { position: relative; width: auto; min-width: 32px; padding: 0 7px; grid-auto-flow: column; gap: 5px; }
+.comments-btn[hidden] { display: none; }
+.comments-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.comments-btn .count { font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.comments-btn.attention::after { content: ""; position: absolute; top: 5px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: var(--state-turn); }
+.version-wrap { position: relative; }
+.version-chip { padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--radius-pill); font: var(--text-xs) var(--mono); color: var(--text-soft); }
+.version-chip[hidden] { display: none; }
+.version-chip.old { border-color: var(--warning); color: var(--warning); }
+.versions-menu { position: absolute; top: 28px; left: 0; z-index: 40; min-width: 260px; padding: 4px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg); box-shadow: var(--shadow-md); }
+.version-row { display: block; width: 100%; padding: 5px 8px; border-radius: var(--radius-sm); text-align: left; font-size: var(--text-sm); }
+.version-row:hover { background: var(--hover); }
+.version-row.current { font-weight: 600; color: var(--accent); }
+.old-version { margin: 0 0 10px; padding: 6px 10px; border-radius: var(--radius-md); background: var(--warning-soft); color: var(--warning); font-size: var(--text-md); }
+.live[data-state="held"] { background: var(--warning); }
+
+/* File headers: viewed, comment, open; and the file list's viewed marks */
+
+.file-controls { display: inline-flex; align-items: center; gap: 12px; font-size: var(--text-sm); }
+.viewed { display: inline-flex; align-items: center; gap: 4px; color: var(--text-soft); cursor: pointer; }
+.viewed-changed { color: var(--warning); }
+.viewed-mark { color: var(--success); font-size: var(--text-xs); }
+.viewed-mark.changed { color: var(--warning); }
+.file-viewed .file-name { color: var(--text-faint); }
+.badge-comments { color: var(--state-open); }
+.badge-turn { color: var(--state-turn); }
 
 .toast {
   position: fixed;

@@ -15,7 +15,20 @@
     </button>
     <div class="crumbs"><span id="repo-name"></span><span class="sep">/</span><span class="here" id="branch-name"></span></div>
     <span class="chip" id="source-chip" hidden></span>
+    <span class="version-wrap">
+      <button class="version-chip" id="version" type="button" title="Versions of this branch's diff that comments were made on" hidden></button>
+      <div class="versions-menu" id="versions-menu" hidden></div>
+    </span>
+    <span class="batch" id="batch" hidden>
+      <span class="batch-count" id="batch-count"></span>
+      <button class="btn" type="button" id="batch-discard">Discard</button>
+      <button class="btn btn-primary" type="button" id="batch-send">Send</button>
+    </span>
     <div class="actions">
+      <button class="icon-btn comments-btn" id="comments-btn" type="button" title="All comments on this branch" aria-label="All comments" hidden>
+        <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2.5h9A1.5 1.5 0 0 1 14 4v5.5a1.5 1.5 0 0 1-1.5 1.5H8.5l-3 2.5V11h-2A1.5 1.5 0 0 1 2 9.5V4a1.5 1.5 0 0 1 1.5-1.5z"/></svg>
+        <span class="count" id="comments-count"></span>
+      </button>
       <div class="seg" role="group" aria-label="Diff layout">
         <button type="button" data-layout="auto">Auto</button>
         <button type="button" data-layout="split" title="Side by side (s)">Split</button>
@@ -43,8 +56,24 @@
     </aside>
     <main class="main" id="main">
       <div class="branch-head" id="branch-head"></div>
-      <div class="diffs" id="diffs"></div>
+      <div class="branch-actions"><button class="link" type="button" id="comment-branch" hidden>Comment on the whole branch</button></div>
+      <div class="branch-threads" id="branch-threads"></div>
+      <div class="review">
+        <div class="diffs" id="diffs"></div>
+        <aside class="rail" id="rail" aria-label="Comments"></aside>
+      </div>
     </main>
+  </div>
+  <div class="composer" id="composer" hidden>
+    <p class="composer-where" id="composer-where"></p>
+    <textarea id="composer-text" rows="2" placeholder="Leave a comment for the agent…" aria-label="Comment"></textarea>
+    <p class="key-hint" id="composer-hint"></p>
+    <div class="thread-actions">
+      <button class="btn" type="button" id="composer-cancel">Cancel</button>
+      <span class="spacer"></span>
+      <button class="btn" type="button" id="composer-alt"></button>
+      <button class="btn btn-primary" type="button" id="composer-submit"></button>
+    </div>
   </div>
   <div class="toast" id="toast" hidden></div>
   <script type="module" src="/static/js/main.js"></script>
