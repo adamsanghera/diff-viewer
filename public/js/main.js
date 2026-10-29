@@ -319,7 +319,7 @@ function moveFile(step) {
 }
 
 function onKey(event) {
-  if (event.metaKey || event.ctrlKey || event.altKey || event.target.closest("input, textarea")) return;
+  if (event.metaKey || event.ctrlKey || event.altKey || event.target.closest?.("input, textarea")) return;
   const actions = {
     "/": () => $("#filter").focus(),
     "\\": toggleSidebar,
