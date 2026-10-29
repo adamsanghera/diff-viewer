@@ -72,6 +72,28 @@ async function commentOnLine11(page, text = "Why double it here?") {
   await page.waitFor(() => document.querySelectorAll("#rail .thread").length === 1, { what: "a card in the rail" });
 }
 
+test("unmodified lines load when expanded, and take no comment", options, async () => {
+  const { page } = await openViewer();
+  const fetches = () => page.eval(() => performance.getEntriesByType("resource").filter((r) => r.name.includes("/api/file")).length);
+  const newSide = () => page.eval(() => [...document.querySelector(".file-diff > *").shadowRoot.querySelectorAll("code[data-additions] [data-column-number]")].map((c) => Number(c.dataset.columnNumber)));
+  assert.equal(await fetches(), 0, "nothing loads until someone expands");
+  assert.equal((await newSide())[0], 8, "b's hunk starts three lines above its change at line 11");
+
+  await page.eval(() => document.querySelector(".file-diff > *").shadowRoot.querySelector("[data-separator-first] [data-expand-button]").click());
+  await page.waitFor(() => document.querySelector(".file-diff > *").shadowRoot.querySelector('code[data-additions] [data-column-number="1"]'), { what: "line 1, expanded" });
+  assert.equal(await fetches(), 2, "the file's old and new sides, once");
+
+  await clickLineNumber(page, 2);
+  await page.waitFor(() => !document.querySelector("#toast").hidden, { what: "a toast" });
+  assert.match(await page.eval(() => document.querySelector("#toast").textContent), /not on expanded ones/);
+  assert.equal(await page.eval(() => document.querySelector("#composer").hidden), true, "no composer opens");
+
+  await commentOnLine11(page);
+  assert.equal((await newSide())[0], 1, "a new comment re-renders the file and keeps it expanded");
+  assert.equal(await fetches(), 2);
+  assert.deepEqual(page.errors, []);
+});
+
 test("clicking a line number and pressing Enter leaves a comment beside the line", options, async () => {
   const { page } = await openViewer();
   await commentOnLine11(page);
