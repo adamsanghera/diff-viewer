@@ -323,6 +323,7 @@ function onKey(event) {
   const actions = {
     "/": () => $("#filter").focus(),
     "\\": toggleSidebar,
+    f: toggleSidebar,
     s: () => setLayout(LAYOUTS[(LAYOUTS.indexOf(state.layout) + 1) % LAYOUTS.length]),
     "[": () => moveBranch(-1),
     "]": () => moveBranch(1),

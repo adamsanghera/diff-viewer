@@ -55,6 +55,16 @@ test("clicking a branch shows its diff, and Unified switches to one column", opt
   assert.deepEqual(page.errors, []);
 });
 
+test("f shows and hides the sidebar", options, async () => {
+  const { page } = await openViewer();
+  const hidden = () => document.documentElement.classList.contains("no-sidebar");
+  const pressF = () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "f", bubbles: true }));
+  await page.eval(pressF);
+  assert.equal(await page.eval(hidden), true);
+  await page.eval(pressF);
+  assert.equal(await page.eval(hidden), false);
+});
+
 test("Auto shows split diffs in a wide window and one column in a narrow one", options, async () => {
   const { page } = await openViewer();
   // Pierre marks its <pre> "split" or, for one column, "single".
