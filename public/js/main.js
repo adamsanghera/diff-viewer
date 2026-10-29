@@ -61,9 +61,10 @@ async function loadStack() {
   $("#source-chip").textContent = source;
   $("#source-chip").title = "Where this stack's parents came from";
   $("#source-chip").hidden = false;
+  // The server sends the sizes it has already computed; a size it lacks keeps its last value until the fill-in below.
+  state.stackSizes = { ...state.stackSizes, ...state.stack.sizes };
   renderStack();
-  // Sizes need every branch's diff, so the stack shows first and they fill in.
-  loadStackSizes().catch(() => {});
+  if (state.stack.entries.some((e) => !state.stack.sizes?.[e.id])) loadStackSizes().catch(() => {});
 }
 
 /** Each branch's +/− for the sidebar, from the overview's summary of the stack. */
