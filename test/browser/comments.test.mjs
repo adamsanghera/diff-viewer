@@ -50,9 +50,16 @@ async function clickLineNumber(page, line) {
   for (const type of ["mouseMoved", "mousePressed", "mouseReleased"]) await page.send("Input.dispatchMouseEvent", { type, ...point, button: "left", clickCount: 1 });
 }
 
-async function typeAndPress(page, text, key = "Enter", modifiers = 0) {
+// CDP's modifier bits.
+const SHIFT = 8;
+const COMMAND = 4;
+
+/** Types `text` into the focused box and presses a key: Shift+Enter, which submits, unless told otherwise. */
+async function typeAndPress(page, text, key = "Enter", modifiers = SHIFT) {
   await page.send("Input.insertText", { text });
-  for (const type of ["keyDown", "keyUp"]) await page.send("Input.dispatchKeyEvent", { type, key, code: key, windowsVirtualKeyCode: 13, modifiers });
+  // A key-down types its `text` unless the page prevents it, as a real Enter types a line break.
+  await page.send("Input.dispatchKeyEvent", { type: "keyDown", key, code: key, windowsVirtualKeyCode: 13, modifiers, text: key === "Enter" ? "\r" : undefined });
+  await page.send("Input.dispatchKeyEvent", { type: "keyUp", key, code: key, windowsVirtualKeyCode: 13, modifiers });
 }
 
 const railCards = () => [...document.querySelectorAll("#rail .thread")].map((c) => ({ id: Number(c.dataset.thread), status: c.dataset.status, text: c.innerText }));
@@ -68,7 +75,7 @@ async function commentOnLine11(page, text = "Why double it here?") {
 test("clicking a line number and pressing Enter leaves a comment beside the line", options, async () => {
   const { page } = await openViewer();
   await commentOnLine11(page);
-  assert.match(await page.eval(() => document.querySelector("#composer-where").textContent), /app\.js:11/);
+  assert.match(await page.eval(() => document.querySelector("#composer-text").getAttribute("aria-label")), /app\.js:11/);
   const [card] = await page.eval(railCards);
   assert.match(card.text, /Why double it here\?/);
   assert.deepEqual(await page.eval(markedRows), ["11:open"]);
@@ -120,7 +127,7 @@ test("the lines under the pointer, and the lines being selected, are tinted unti
 
   await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...(await centerOf(11)), button: "left", clickCount: 1 });
   await page.waitFor(() => !document.querySelector("#composer").hidden, { what: "the composer" });
-  assert.match(await page.eval(() => document.querySelector("#composer-where").textContent), /app\.js:9-11/);
+  assert.match(await page.eval(() => document.querySelector("#composer-text").getAttribute("aria-label")), /app\.js:9-11/);
   assert.equal((await tinted("data-selected-line")).length, 3, "the selection stays while the composer is open");
   await page.eval(() => document.querySelector("#composer-cancel").click());
   assert.deepEqual(await tinted("data-selected-line"), []);
@@ -140,18 +147,46 @@ test("an agent's reply shows up live, and resolving clears the line", options, a
   assert.deepEqual(await page.eval(markedRows), []);
 });
 
-test("a batch stays hidden from agents until Send", options, async () => {
+test("with Add to batch chosen from the button's chevron, ⌘Enter only adds to the batch, which stays hidden from agents until Send batch at the top right", options, async () => {
   const { page, home, started } = await openViewer();
+  const agent = await openStore(home);
+  const waiting = () => agent.waitingOnAgent({ repo: started.repo.commonDir }).length;
   await clickLineNumber(page, 11);
   await page.waitFor(() => !document.querySelector("#composer").hidden);
-  await typeAndPress(page, "Held back", "Enter", 1 /* Alt: start a batch */);
+  assert.equal(await page.eval(() => document.querySelector("#composer-submit").textContent), "Comment");
+  await page.eval(() => document.querySelector("#composer [data-batch-menu]").click());
+  assert.equal(await page.eval(() => document.querySelector("#composer .split-menu").hidden), false, "the chevron opens the menu");
+  await page.eval(() => document.querySelector('#composer [data-batch-choice="on"]').click());
+  assert.equal(await page.eval(() => document.querySelector("#composer .split-menu").hidden), true, "a choice closes it");
+  assert.equal(await page.eval(() => document.querySelector("#composer-submit").textContent), "Add to batch", "the button says what Enter now does");
+  assert.equal(await page.eval(() => document.querySelector("#composer").hidden), false, "choosing submits nothing");
+  assert.equal(await page.eval(() => localStorage.getItem("diffview.batch")), "on", "the choice is kept");
+  await page.eval(() => document.querySelector("#composer-text").focus());
+  await typeAndPress(page, "Held back", "Enter", 0);
+  assert.equal(await page.eval(() => document.querySelector("#composer").hidden), false, "Enter is a new line, not a submit");
+  assert.equal(await page.eval(() => document.querySelector("#composer-text").value), "Held back\n");
+  await typeAndPress(page, "on two lines", "Enter", COMMAND);
   await page.waitFor(() => !document.querySelector("#batch").hidden, { what: "the batch bar" });
   assert.equal(await page.eval(() => document.querySelector("#rail .thread").dataset.pending), "true");
-  const agent = await openStore(home);
-  assert.deepEqual(agent.waitingOnAgent({ repo: started.repo.commonDir }), []);
+  assert.equal(waiting(), 0, "⌘Enter added it to the batch and sent nothing");
+  assert.equal(await page.eval(() => document.querySelector("#batch").closest(".actions") !== null), true, "the batch's buttons sit at the top right");
+  assert.equal(await page.eval(() => document.querySelector("#rail .thread [data-submit]").textContent), "Add to batch", "the card's reply button shows the same choice");
+
   await page.eval(() => document.querySelector("#batch-send").click());
   await page.waitFor(() => document.querySelector("#batch").hidden, { what: "the batch to send" });
-  assert.equal(agent.waitingOnAgent({ repo: started.repo.commonDir }).length, 1);
+  assert.equal(waiting(), 1);
+
+  await clickLineNumber(page, 13);
+  await page.waitFor(() => !document.querySelector("#composer").hidden);
+  assert.equal(await page.eval(() => document.querySelector("#composer-submit").textContent), "Add to batch", "the choice is sticky");
+  await page.eval(() => document.querySelector("#composer [data-batch-menu]").click());
+  await page.eval(() => document.querySelector('#composer [data-batch-choice="off"]').click());
+  assert.equal(await page.eval(() => document.querySelector("#composer-submit").textContent), "Comment");
+  await page.eval(() => document.querySelector("#composer-text").focus());
+  await typeAndPress(page, "Right away", "Enter");
+  await page.waitFor(() => document.querySelectorAll("#rail .thread").length === 2, { what: "the second card" });
+  assert.equal(waiting(), 2, "with Comment chosen, Shift+Enter sends at once");
+  assert.equal(await page.eval(() => document.querySelector("#batch").hidden), true);
   agent.close();
 });
 
@@ -332,7 +367,7 @@ test("the agent's description shows above the diff, and selected text in it take
   await page.waitFor(() => !document.querySelector("#comment-btn").hidden, { what: "the Comment button" });
   await page.eval(() => document.querySelector("#comment-btn").click());
   await page.waitFor(() => !document.querySelector("#composer").hidden);
-  assert.match(await page.eval(() => document.querySelector("#composer-where").textContent), /repeat the doubling/);
+  assert.match(await page.eval(() => document.querySelector("#composer-text").getAttribute("aria-label")), /repeat the doubling/);
   await typeAndPress(page, "Which callers?");
   await page.waitFor(() => document.querySelector("#rail .thread"), { what: "the card" });
   const offset = await page.eval(() => {
@@ -385,7 +420,7 @@ test("the overview shows the stack's description and its branches, and its text 
   await page.waitFor(() => !document.querySelector("#comment-btn").hidden, { what: "the Comment button" });
   await page.eval(() => document.querySelector("#comment-btn").click());
   await page.waitFor(() => !document.querySelector("#composer").hidden);
-  assert.match(await page.eval(() => document.querySelector("#composer-where").textContent), /the stack description: “each review”/);
+  assert.match(await page.eval(() => document.querySelector("#composer-text").getAttribute("aria-label")), /the stack description: “each review”/);
   await typeAndPress(page, "How small?");
   await page.waitFor(() => document.querySelector("#rail .thread"), { what: "the card" });
   const [{ id }] = await page.eval(railCards);

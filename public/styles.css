@@ -470,7 +470,6 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
   background: var(--bg);
   box-shadow: var(--shadow-lg);
 }
-.composer-where { margin: 0; font-size: var(--text-sm); color: var(--text-soft); font-family: var(--mono); }
 .thread textarea, .composer textarea {
   display: block;
   width: 100%;
@@ -484,10 +483,11 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
   color: var(--text);
   resize: none;
 }
+.composer textarea { margin-top: 0; }
 .thread textarea:focus, .composer textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
-.thread-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+.thread-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+#composer-actions { display: inline-flex; }
 .thread-actions .spacer { flex: 1; }
-.key-hint { margin: 4px 2px 0; font-size: var(--text-xs); color: var(--text-faint); }
 .link { color: var(--link); padding: 0; }
 .link:hover { text-decoration: underline; }
 .btn { height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: var(--radius-sm); background: var(--bg-control); font-size: var(--text-md); font-weight: var(--weight-medium); color: var(--text); }
@@ -498,7 +498,20 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 
 /* Header: batch, comments button, versions */
 
-.batch { display: inline-flex; align-items: center; gap: 6px; }
+.batch { display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; }
+/* A submit button whose chevron switches between sending now and adding to the batch. */
+.split-btn { position: relative; display: inline-flex; }
+.split-main { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.split-chevron { padding: 0 6px; border-top-left-radius: 0; border-bottom-left-radius: 0; box-shadow: inset 1px 0 0 rgba(0, 0, 53, 0.12); }
+.split-chevron.btn-primary { box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.35); }
+.split-chevron .icon { width: 14px; height: 14px; }
+.split-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 40; width: 270px; padding: 4px 0; border: var(--hairline) solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg); box-shadow: 0 8px 24px rgba(0, 0, 53, 0.14); }
+.split-menu[hidden] { display: none; }
+.split-choice { display: grid; gap: 2px; width: 100%; padding: 7px 12px 7px 30px; text-align: left; position: relative; }
+.split-choice:hover { background: var(--hover); }
+.split-choice strong { font-size: var(--text-md); font-weight: var(--weight-medium); color: var(--text); }
+.split-choice span { font-size: var(--text-sm); color: var(--text-soft); }
+.split-choice[aria-checked="true"]::before { content: "✓"; position: absolute; left: 11px; top: 7px; color: var(--accent); font-weight: var(--weight-semibold); }
 .batch[hidden] { display: none; }
 .batch-count { font-size: var(--text-sm); color: var(--text-soft); white-space: nowrap; }
 .comments-btn { position: relative; width: auto; min-width: 32px; padding: 0 7px; grid-auto-flow: column; gap: 5px; }

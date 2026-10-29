@@ -27,6 +27,8 @@ export const state = {
     enabled: false,
     threads: [],
     pendingCount: 0,
+    /** Whether new comments and replies go into the batch: the sticky "Add to batch" checkbox. */
+    batch: localStorage.getItem("diffview.batch") === "on",
     viewed: {},
     /** The branch shown's own viewed mark, {branch, mark}: mark "viewed", "changed" or null. */
     branchViewed: null,

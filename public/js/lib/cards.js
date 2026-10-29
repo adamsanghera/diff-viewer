@@ -1,6 +1,6 @@
 /** The comment threads' HTML: cards, the rail's header, and the grouped list. Adapted from mdview's. */
 import { ago, escapeHtml, truncate } from "./format.js";
-import { keyHint } from "./keys.js";
+import { submitButton } from "./keys.js";
 
 const NOW_READS_PREVIEW_CHARS = 140;
 
@@ -58,8 +58,7 @@ function threadControls(t, batching) {
   const reopen = t.pending || t.status === "open" ? "" : '<button class="btn" type="button" data-action="open">Reopen</button>';
   const resolve = t.pending || t.status === "resolved" ? "" : '<button class="btn btn-primary" type="button" data-action="resolved">Resolve</button>';
   return `<textarea class="reply" rows="1" placeholder="${placeholder}" aria-label="Reply"></textarea>
-    <p class="key-hint">${keyHint(batching)}</p>
-    <div class="thread-actions"><button class="btn btn-danger" type="button" data-action="delete-thread" title="Delete this thread permanently">Delete</button><span class="spacer"></span>${reopen}${resolve}</div>`;
+    <div class="thread-actions"><button class="btn btn-danger" type="button" data-action="delete-thread" title="Delete this thread permanently">Delete</button><span class="spacer"></span>${submitButton(batching, { now: "Reply", primary: false })}${reopen}${resolve}</div>`;
 }
 
 /** For an outdated thread: what its lines became, and a link to the version it was made on. */
