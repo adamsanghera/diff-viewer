@@ -47,7 +47,7 @@ export function renderStack() {
   const checkedOut = state.stack.checkedOut;
   const prefix = sharedPrefix(entries.map((e) => e.id));
   $("#stack-meta").textContent = `${prefix} · ${entries.length} ${entries.length === 1 ? "branch" : "branches"}`.replace(/^ · /, "");
-  const rows = stackRows(entries).map(({ entry, depth }) => {
+  const rows = stackRows(entries).map(({ entry, depth }, index) => {
     const badges = [
       commentBadge(state.stack.comments?.[entry.id]),
       entry.id === checkedOut ? '<span class="badge badge-head" title="Checked out">HEAD</span>' : "",
@@ -55,7 +55,8 @@ export function renderStack() {
       entry.pr ? `<span class="badge">#${entry.pr.number}</span>` : "",
     ].join("");
     const active = !state.overview && entry.id === state.branch ? " active" : "";
-    return `<li><a class="stack-row${active}" href="?${new URLSearchParams({ branch: entry.id, stack: state.stackOf })}" data-branch="${escapeHtml(entry.id)}" style="--depth:${depth}" title="${escapeHtml(entry.id)} (from ${escapeHtml(entry.source)})">
+    const top = index === 0 ? " stack-top" : "";
+    return `<li><a class="stack-row${top}${active}" href="?${new URLSearchParams({ branch: entry.id, stack: state.stackOf })}" data-branch="${escapeHtml(entry.id)}" style="--depth:${depth}" title="${escapeHtml(entry.id)} (from ${escapeHtml(entry.source)})">
       <span class="dot"></span><span class="name">${escapeHtml(entry.id.slice(prefix.length))}</span>${badges}</a></li>`;
   });
   rows.push(`<li><span class="stack-row trunk"><span class="dot"></span><span class="name">${escapeHtml(trunk ?? "trunk")}</span></span></li>`);
