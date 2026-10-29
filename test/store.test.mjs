@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { DIFF_ARGS } from "../lib/diff.mjs";
-import { openStore } from "../lib/store.mjs";
+import { openStore, STACK_SNAPSHOT } from "../lib/store.mjs";
 import { makeRepo } from "./helpers/repo.mjs";
 
 const HUMAN = { name: "adam", kind: "human" };
@@ -200,6 +200,42 @@ test("a comment on a description follows its block, and goes outdated with a gue
     () => store.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: "nope", quote: "x", body: "x", author: HUMAN }),
     /not stored/,
   );
+});
+
+test("a stack description is found through any of its branches, as the stack grows on top and merges from the bottom", async () => {
+  const store = await freshStore();
+  assert.equal(store.stackEntry(REPO, ["feat/a", "feat/b"]), null);
+  const v1 = store.setStackDescription(REPO, ["feat/a", "feat/b"], { title: "Auth rework", body: "Why the stack." }, AGENT);
+  assert.deepEqual([v1.entry, v1.seq, v1.title], ["stack:feat/a", 1, "Auth rework"]);
+  assert.equal(store.stackEntry(REPO, ["feat/b"]), "stack:feat/a");
+
+  const grown = store.setStackDescription(REPO, ["feat/a", "feat/b", "feat/c"], { body: "Why the stack, now with c." }, AGENT);
+  assert.deepEqual([grown.entry, grown.seq], ["stack:feat/a", 2]);
+  store.setStackDescription(REPO, ["feat/b", "feat/c"], { body: "feat/a merged." }, AGENT);
+  assert.equal(store.stackEntry(REPO, ["feat/b", "feat/c"]), "stack:feat/a");
+  assert.equal(store.stackEntry(REPO, ["feat/a"]), null, "a merged branch leaves the stack's members");
+  assert.equal(store.description(REPO, "stack:feat/a").seq, 3);
+
+  const reused = store.setStackDescription(REPO, ["feat/a", "feat/z"], { body: "A new stack whose bottom reuses a merged name." }, AGENT);
+  assert.equal(reused.entry, "stack:feat/a~2");
+  assert.equal(store.stackEntry(REPO, ["feat/a", "feat/z"]), "stack:feat/a~2");
+  assert.equal(store.stackEntry(REPO, ["feat/c"]), "stack:feat/a");
+});
+
+test("a thread on a stack's description sits on its empty diff, and the whole stack takes comments", async () => {
+  const store = await freshStore();
+  const { entry, sha256 } = store.setStackDescription(REPO, ["feat/a", "feat/b"], { body: "## Why\n\nShip auth in pieces.\n" }, AGENT);
+  const onText = store.createThread({ repo: REPO, entry, snapshot: STACK_SNAPSHOT, kind: "description", descriptionSha: sha256, quote: "in pieces", body: "How many?", author: HUMAN });
+  const onStack = store.createThread({ repo: REPO, entry, snapshot: STACK_SNAPSHOT, kind: "branch", body: "Ship it.", author: HUMAN });
+  const { threads } = store.threadsAt(REPO, entry);
+  assert.deepEqual(
+    threads.map((t) => [t.id, t.kind, t.state, t.heading ?? null]),
+    [
+      [onText, "description", "current", "Why"],
+      [onStack, "branch", "current", null],
+    ],
+  );
+  assert.deepEqual(store.waitingOnAgent({ repo: REPO, entries: [entry] }), [onText, onStack]);
 });
 
 test("a version 2 store gains description threads, keeping its threads, after a backup", async () => {

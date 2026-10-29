@@ -8,6 +8,8 @@ export const state = {
   stackOf: null,
   branch: null,
   stack: null,
+  /** While the stack's overview shows instead of a branch: {entry, diff, branches} from /api/overview. */
+  overview: null,
   diff: null,
   /** The branch's description: {seq, title, html, sha256, ...}, or null when it has none. */
   description: null,

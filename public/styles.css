@@ -241,6 +241,20 @@ a.stack-row:hover { background: var(--hover); }
 .stack-row .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; border: 2px solid currentColor; opacity: 0.7; }
 .stack-row.active .dot { background: currentColor; opacity: 1; }
 .stack-row.trunk { color: var(--text-faint); }
+.overview-row { margin-bottom: 4px; }
+.overview-row .icon { flex: none; width: 12px; height: 12px; color: var(--text-soft); }
+
+/* The stack's overview */
+
+.overview-branches { max-width: 820px; margin: 0; padding: 0; list-style: none; border: var(--hairline) solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg); }
+.overview-branch { padding: 12px 16px; }
+.overview-branch + .overview-branch { border-top: var(--hairline) solid var(--border); }
+.overview-branch-head { display: flex; align-items: center; gap: 8px; }
+.overview-branch-head a { font-weight: var(--weight-semibold); color: var(--text); text-decoration: none; }
+.overview-branch-head a:hover { color: var(--link); text-decoration: underline; }
+.overview-branch-head .counts { margin-left: auto; font: var(--text-sm) var(--mono); }
+.overview-branch-name { margin: 2px 0 0; font: var(--text-sm) var(--mono); color: var(--text-faint); }
+.overview-summary { margin: 6px 0 0; font-size: var(--text-md); color: var(--text-soft); }
 
 /* File tree */
 

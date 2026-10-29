@@ -183,7 +183,7 @@ function renderHeader() {
   const pending = state.comments.pendingCount;
   $("#batch").hidden = pending === 0;
   $("#batch-count").textContent = `${pending} pending`;
-  const version = state.version ?? state.diff?.version;
+  const version = state.overview ? null : (state.version ?? state.diff?.version);
   const chip = $("#version");
   chip.hidden = !version;
   if (version) {
@@ -296,9 +296,9 @@ function openComposer(target, anchorEl) {
   state.comments.composer = target;
   $("#composer-where").textContent =
     target.kind === "branch"
-      ? `Comment on ${state.branch}`
+      ? `Comment on ${state.overview ? "the whole stack" : state.branch}`
       : target.kind === "description"
-        ? `Comment on the description: “${target.quote.length > 60 ? `${target.quote.slice(0, 59)}…` : target.quote}”`
+        ? `Comment on the ${state.overview ? "stack " : ""}description: “${target.quote.length > 60 ? `${target.quote.slice(0, 59)}…` : target.quote}”`
         : `Comment on ${anchorLabel({ ...target, path: target.path })}`;
   $("#comment-btn").hidden = true;
   composer.hidden = false;

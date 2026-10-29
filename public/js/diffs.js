@@ -80,7 +80,7 @@ function openInCursor(file) {
   return link;
 }
 
-function cleanUpViews() {
+export function cleanUpViews() {
   for (const { view } of state.views) view.cleanUp();
   state.views = [];
 }

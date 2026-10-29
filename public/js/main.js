@@ -1,17 +1,20 @@
 /**
  * The viewer: the stack in the sidebar, the selected branch's files below
  * it, and each file's diff rendered by Pierre's FileDiff in the main pane,
- * with comments (comments.js) beside or under the lines.
- * The URL names the branch shown and the branch whose stack the sidebar
- * shows, so moving within a stack keeps the sidebar steady.
+ * with comments (comments.js) beside or under the lines. Or, instead of a
+ * branch, the stack's overview (overview.js).
+ * The URL names the branch shown (or ?overview) and the branch whose stack
+ * the sidebar shows, so moving within a stack keeps the sidebar steady.
  *
  * This module loads what the page shows and wires the pieces together:
  * theme.js, diffs.js (files and layout), sidebar.js, branch-head.js,
- * description.js, comments.js and shortcuts.js draw and handle the rest.
+ * overview.js, description.js, comments.js and shortcuts.js draw and handle
+ * the rest.
  */
 import { renderBranchHead } from "./branch-head.js";
 import { commentHooks, composerOpen, initComments, loadComments, renderComments, scheduleLayout, threadsInline } from "./comments.js";
 import { renderDescription } from "./description.js";
+import { renderOverview } from "./overview.js";
 import { applyLayout, renderFiles, rerenderFiles, setLayout } from "./diffs.js";
 import { escapeHtml } from "./lib/format.js";
 import { reportLoad } from "./perf.js";
@@ -22,15 +25,17 @@ import { applyTheme, cycleTheme, PREFERS_DARK } from "./theme.js";
 
 /* Location */
 
+/** The branch the URL names, or null for the stack's overview (?overview). */
 function readLocation() {
   const params = new URLSearchParams(location.search);
-  state.branch = params.get("branch") || state.info.initialBranch;
-  state.stackOf = params.get("stack") || state.branch;
+  const branch = params.get("branch") || state.info.initialBranch;
+  state.stackOf = params.get("stack") || branch;
+  return params.has("overview") ? null : branch;
 }
 
 function writeLocation() {
-  const params = new URLSearchParams({ branch: state.branch });
-  if (state.stackOf !== state.branch) params.set("stack", state.stackOf);
+  const params = state.overview ? new URLSearchParams({ stack: state.stackOf, overview: "" }) : new URLSearchParams({ branch: state.branch });
+  if (!state.overview && state.stackOf !== state.branch) params.set("stack", state.stackOf);
   history.pushState(null, "", `/view?${params}`);
 }
 
@@ -38,6 +43,11 @@ function writeLocation() {
 
 async function loadDescription() {
   if (!state.comments.enabled) return;
+  if (!state.branch) {
+    state.description = null;
+    renderDescription();
+    return;
+  }
   const { description } = await getJson(`/api/description?${new URLSearchParams({ branch: state.branch })}`);
   if (description?.sha256 === state.description?.sha256 && $("#description").innerHTML) return;
   state.description = description;
@@ -53,7 +63,17 @@ async function loadStack() {
   renderStack();
 }
 
+/** The overview's branches, and the stack description's entry, which comments on the overview belong to; null until one is written. */
+async function loadOverview() {
+  state.overview = await getJson(`/api/overview?${new URLSearchParams({ stack: state.stackOf })}`);
+  state.branch = state.overview.entry;
+  state.diff = state.overview.diff;
+  renderOverview();
+  renderTree();
+}
+
 async function loadDiff({ force = false } = {}) {
+  if (state.overview) return loadOverview();
   const params = new URLSearchParams({ branch: state.branch, stack: state.stackOf });
   if (state.version) params.set("v", String(state.version.seq));
   const diff = await getJson(`/api/diff?${params}`);
@@ -71,9 +91,11 @@ async function loadDiff({ force = false } = {}) {
   return true;
 }
 
+/** Shows a branch, or with `branch` null, the stack's overview. */
 async function show(branch, { push = true, version = null } = {}) {
   const started = performance.now();
   state.branch = branch;
+  state.overview = branch === null ? { entry: null, diff: null, branches: [] } : null;
   state.version = version === null ? null : { seq: version };
   state.comments.active = null;
   state.comments.listMode = false;
@@ -81,10 +103,18 @@ async function show(branch, { push = true, version = null } = {}) {
   renderStack();
   try {
     state.description = null;
-    await Promise.all([loadDiff({ force: true }), loadDescription()]);
+    if (state.overview) {
+      // The overview names the entry its description and comments are under.
+      state.comments.threads = [];
+      await loadOverview();
+      await loadDescription();
+      renderComments();
+    } else {
+      await Promise.all([loadDiff({ force: true }), loadDescription()]);
+    }
     await loadComments();
     scrollTo(0, 0);
-    reportLoad(`Showed ${branch}`, started);
+    reportLoad(`Showed ${branch ?? "the overview"}`, started);
   } catch (err) {
     toast(err.message);
   }
@@ -131,6 +161,7 @@ function connectLive() {
     const store = new EventSource("/api/store-events");
     store.addEventListener("change", async () => {
       try {
+        if (state.overview && !composerOpen()) await loadOverview();
         if (!composerOpen()) await loadDescription();
         await loadComments();
         await loadStack();
@@ -159,7 +190,8 @@ function onResize() {
 async function main() {
   state.info = await getJson("/api/info");
   $("#repo-name").textContent = state.info.repo;
-  readLocation();
+  const first = readLocation();
+  state.branch = first;
   applyTheme();
   setLayout(state.layout);
   Object.assign(commentHooks, {
@@ -174,12 +206,14 @@ async function main() {
   PREFERS_DARK.addEventListener("change", applyTheme);
   $("#toggle-sidebar").addEventListener("click", toggleSidebar);
   for (const button of document.querySelectorAll("[data-layout]")) button.addEventListener("click", () => setLayout(button.dataset.layout));
-  $("#stack").addEventListener("click", (event) => {
-    const row = event.target.closest("a[data-branch]");
-    if (!row || event.metaKey || event.ctrlKey) return;
+  const followBranchLink = (event) => {
+    const link = event.target.closest("a[data-branch], a[data-overview]");
+    if (!link || event.metaKey || event.ctrlKey) return;
     event.preventDefault();
-    show(row.dataset.branch);
-  });
+    show(link.dataset.branch ?? null);
+  };
+  $("#stack").addEventListener("click", followBranchLink);
+  $("#diffs").addEventListener("click", followBranchLink);
   $("#branch-head").addEventListener("click", (event) => {
     if (event.target.closest("[data-latest]")) show(state.branch, { push: false });
   });
@@ -198,15 +232,16 @@ async function main() {
     }
   });
   new ResizeObserver(onResize).observe($("#main"));
-  addEventListener("popstate", () => {
-    readLocation();
-    show(state.branch, { push: false });
-  });
+  addEventListener("popstate", () => show(readLocation(), { push: false }));
   try {
     await loadStack();
-    await Promise.all([loadDiff({ force: true }), loadDescription()]);
-    await loadComments();
-    reportLoad(`Loaded ${state.branch}`, 0);
+    if (first === null) {
+      await show(null, { push: false });
+    } else {
+      await Promise.all([loadDiff({ force: true }), loadDescription()]);
+      await loadComments();
+      reportLoad(`Loaded ${first}`, 0);
+    }
   } catch (err) {
     $("#branch-head").innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;
   }

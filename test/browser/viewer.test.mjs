@@ -35,7 +35,7 @@ test("the page shows the stack, the branch's files, and its diff", options, asyn
     files: [...document.querySelectorAll("#tree .file-name")].map((el) => el.textContent),
     removed: [...document.querySelector(".file-diff > *").shadowRoot.querySelectorAll('[data-line-type="change-deletion"]')].map((el) => el.textContent),
   }));
-  assert.deepEqual(view.stack, ["b", "a", "main"]);
+  assert.deepEqual(view.stack, ["Overview", "b", "a", "main"]);
   assert.equal(view.active, "b");
   assert.match(view.prefix, /^feat\//);
   assert.deepEqual(view.files, ["app.js"]);

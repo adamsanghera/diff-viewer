@@ -23,7 +23,9 @@ export function renderDescription() {
   box.hidden = false;
   if (!d) {
     box.classList.add("empty");
-    box.innerHTML = `<p class="faint">No description yet. The agent writing this branch adds one with <code>diffview describe</code>; it becomes the PR's body.</p>`;
+    box.innerHTML = state.overview
+      ? `<p class="faint">No stack description yet. The agent writing this stack adds one with <code>diffview describe --stack</code>: what the stack is for and how its branches fit together.</p>`
+      : `<p class="faint">No description yet. The agent writing this branch adds one with <code>diffview describe</code>; it becomes the PR's body.</p>`;
     return;
   }
   box.classList.remove("empty");

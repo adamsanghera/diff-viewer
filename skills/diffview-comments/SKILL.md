@@ -21,13 +21,14 @@ branch (repeatable), `--repo` widens it to every commented branch, and
 
 When a stack is ready for the human to review:
 
-1. Write each branch's description (see Descriptions below).
+1. Write each branch's description, and the stack's (see Descriptions
+   below).
 2. From the repo, start the viewer in a background shell:
    `diffview --no-open -b <top branch>`. It prints a link. When a viewer
    already serves this checkout, it prints that viewer's link and exits, so
    running it again is harmless.
 3. Give the human the link. It opens the whole stack; the sidebar moves
-   between branches.
+   between branches, and its Overview row shows the stack's description.
 4. Wait for their comments with `diffview comments wait --timeout 4h` in
    another background shell, and work through what it returns (the loop
    below).
@@ -80,6 +81,25 @@ gh pr create --title "$(diffview describe --print-title)" --body "$(diffview des
 Each write keeps a new version. A thread on the description names its
 section and paragraph; answer it by rewriting the description (or replying
 to say why not), then suggest resolving it.
+
+The stack has a description too, shown on its Overview page above a list of
+its branches: what the stack is for and how its branches fit together. Write
+it when you author a stack of more than one branch, from any branch in it:
+
+```bash
+diffview describe --stack --title "Stack title" --stdin <<'EOF'
+## Why
+...
+## How the branches fit
+...
+EOF
+diffview describe --stack --print                # read it back
+```
+
+It belongs to the stack's branches, so it follows the stack as you add
+branches on top or the bottom ones merge. Threads on it say `the stack
+description under "..."` or `the whole stack`, and their `show` ends with the
+command to change it.
 
 ## Where a thread sits
 
