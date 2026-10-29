@@ -174,13 +174,13 @@ test("in a narrow window threads show inline, since the rail does not fit", opti
   assert.equal(await page.eval(() => document.documentElement.classList.contains("rail-docked")), false);
 });
 
-test("marking a file viewed collapses it, and an edit to it clears the mark", options, async () => {
+test("marking a file viewed collapses it, and a commit that changes it clears the mark", options, async () => {
   const { page, repo } = await openViewer();
   await page.eval(() => document.querySelector(".file-diff > *").querySelector(".viewed input").click());
   await page.waitFor(() => document.querySelector("#tree .file-viewed"), { what: "the file list to mark it viewed" });
   assert.equal(await page.eval(() => !document.querySelector(".file-diff > *").shadowRoot.querySelector("[data-line]")), true, "collapsed");
   await page.waitFor(() => document.querySelector("#live").dataset.state === "on");
-  repo.write("src/app.js", lines(30, { 10: "const v10 = compute(10);", 20: "const v20 = 21;" }));
+  repo.commit("edit app.js", { "src/app.js": lines(30, { 10: "const v10 = compute(10);", 20: "const v20 = 21;" }) });
   await page.waitFor(() => document.querySelector("#tree .file-changed"), { timeout: 10000, what: "the mark to show the file changed" });
   assert.match(await page.eval(() => document.querySelector(".file-diff > *").querySelector(".viewed").textContent), /Changed since viewed/);
 });
@@ -198,9 +198,9 @@ test("v marks the whole branch viewed, and the stack shows which branches are vi
   assert.equal(await page.eval((sel) => document.querySelector(`${sel} .stack-size`).textContent.includes("viewed"), row("feat/a")), false);
 
   await page.waitFor(() => document.querySelector("#live").dataset.state === "on");
-  repo.write("src/util.js", "export const compute = (x) => x * 3;\n");
+  repo.commit("triple", { "src/util.js": "export const compute = (x) => x * 3;\n" });
   await page.waitFor((sel) => document.querySelector(`${sel} .stack-size`)?.textContent.endsWith("· ↻ changed"), { timeout: 10000, what: "the stack to show feat/b changed" }, row("feat/b"));
-  assert.equal(await page.eval(() => document.querySelector("[data-branch-viewed]").textContent), "Mark branch viewed");
+  await page.waitFor(() => document.querySelector("[data-branch-viewed]")?.textContent === "Mark branch viewed", { what: "the toggle to offer marking it again" });
 
   await page.eval(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "v", bubbles: true })));
   await page.waitFor(() => document.querySelector("[data-branch-viewed]")?.textContent === "✓ Branch viewed", { what: "v to mark it viewed again" });
@@ -380,15 +380,15 @@ test("the overview shows the stack's description and its branches, and its text 
   assert.deepEqual(page.errors, []);
 });
 
-test("a comment survives an edit elsewhere in the file, and goes outdated when its line changes", options, async () => {
+test("a comment survives a commit elsewhere in the file, and goes outdated when one changes its line", options, async () => {
   const { page, repo } = await openViewer();
   await commentOnLine11(page);
   await page.waitFor(() => document.querySelector("#live").dataset.state === "on");
-  repo.write("src/app.js", lines(30, { 2: "const v2 = 'two';", 10: "const v10 = compute(10);" }));
+  repo.commit("edit elsewhere", { "src/app.js": lines(30, { 2: "const v2 = 'two';", 10: "const v10 = compute(10);" }) });
   await page.waitFor(() => document.querySelector("#version")?.textContent === "v2", { timeout: 10000, what: "v2" });
   assert.deepEqual(await page.eval(markedRows), ["11:open"]);
   assert.match((await page.eval(railCards))[0].text, /from v1/);
-  repo.write("src/app.js", lines(30, { 10: "const v10 = compute(10) + 1;" }));
+  repo.commit("edit the line", { "src/app.js": lines(30, { 10: "const v10 = compute(10) + 1;" }) });
   await page.waitFor(() => document.querySelector("#version")?.textContent === "v3", { timeout: 10000, what: "v3" });
   await page.waitFor(() => !document.documentElement.classList.contains("rail-docked") || document.querySelector("#rail .rail-head")?.innerText.includes("older"), { what: "the thread to leave the margin" });
   assert.deepEqual(await page.eval(markedRows), []);

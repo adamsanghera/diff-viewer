@@ -40,21 +40,27 @@ test("the stack and a branch's committed diff", async () => {
   assert.equal(stack.body.checkedOut, "b");
   const diff = await get("/api/diff?branch=a&stack=b");
   assert.deepEqual(diff.body.files.map((f) => [f.path, f.status, f.additions]), [["a.txt", "added", 1]]);
-  assert.equal(diff.body.workingTree, false);
 });
 
-test("the checked-out branch shows uncommitted and untracked changes", async () => {
+test("the checked-out branch shows only commits: edits on disk, staged or not, and untracked files never show", async () => {
   const repo = stackRepo();
   const { get } = await serve(repo);
-  const clean = await get("/api/diff?branch=b");
-  assert.equal(clean.body.uncommitted, false);
+  const committed = await get("/api/diff?branch=b");
   repo.write("a.txt", "one\ntwo\nthree\n");
   repo.write("new file.txt", "fresh\n");
+  repo.git("add", "new file.txt");
   const dirty = await get("/api/diff?branch=b");
-  assert.equal(dirty.body.uncommitted, true);
-  assert.deepEqual(dirty.body.untracked, ["new file.txt"]);
-  assert.deepEqual(dirty.body.files.map((f) => [f.path, f.additions]), [["a.txt", 2], ["new file.txt", 1]]);
-  assert.notEqual(dirty.body.sha, clean.body.sha);
+  assert.equal(dirty.body.sha, committed.body.sha);
+  assert.deepEqual(dirty.body.files.map((f) => [f.path, f.additions]), [["a.txt", 1]]);
+  repo.commit("more");
+  assert.deepEqual(
+    (await get("/api/diff?branch=b")).body.files.map((f) => [f.path, f.additions]),
+    [
+      ["a.txt", 2],
+      ["new file.txt", 1],
+    ],
+    "once committed, both show",
+  );
 });
 
 /** fetch() drops a Host header it is given, so a request naming another host goes through http. */
@@ -134,7 +140,7 @@ test("a stored version can be read back while the branch moves on", async () => 
   const { post, get } = await serveWithStore(repo);
   const v1 = await get("/api/diff?branch=b");
   await post("/api/comments", { branch: "b", sha: v1.sha, kind: "branch", body: "hi" });
-  repo.write("a.txt", "one\ntwo\nthree\n");
+  repo.commit("more", { "a.txt": "one\ntwo\nthree\n" });
   const now = await get("/api/diff?branch=b");
   assert.deepEqual(now.version, { seq: 2, latestSeq: 2 });
   const old = await get("/api/diff?branch=b&v=1");
@@ -243,14 +249,14 @@ test("once warm, the stack carries each branch's size, so the sidebar needs no s
   assert.deepEqual(Object.keys(sizes.b).sort(), ["additions", "byKind", "changed", "deletions", "files", "viewed"]);
 });
 
-test("after a file changes, the checked-out branch's diff is computed again ahead of the page", async () => {
+test("after a commit, the checked-out branch's diff is computed again ahead of the page", async () => {
   const repo = stackRepo();
   const { url, warmed } = await serve(repo);
   await warmed;
-  repo.write("a.txt", "one\ntwo\nthree\n");
+  repo.commit("more", { "a.txt": "one\ntwo\nthree\n" });
   const diff = `${url}api/diff?branch=b`;
   await until(async () => (await cacheOf(diff)).cache === "hit" && (await (await fetch(diff)).json()).files[0].additions === 2, {
-    what: "the edited diff, computed ahead",
+    what: "the new commit's diff, computed ahead",
   });
 });
 

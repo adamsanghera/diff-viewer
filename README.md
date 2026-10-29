@@ -4,8 +4,8 @@ A local viewer for stacked branches. Point it at a repo, and it opens a browser 
 
 - the stack the checked-out branch belongs to, from trunk to the top, whichever tool made it: Graphite (`gt`), Origin (`origin stack`), GitHub's `gh stack`, or plain git branches
 - each branch's own diff against its parent, the same diff its PR shows, split or unified, highlighted by Pierre's [`@pierre/diffs`](https://diffs.com)
-- uncommitted and untracked changes on the checked-out branch
-- live reload: commit, rebase, or edit a file, and the page follows
+- only what is committed: edits on disk, staged or not, and untracked files never show, so what you review is exactly what the branch holds
+- live reload: commit, rebase, or edit a description, and the page follows
 - comments on lines, files or whole branches that coding agents read and answer from a terminal
 
 ## Setup
@@ -72,7 +72,7 @@ diffview describe                                # prints it as the file reads n
 gh pr create --title "$(diffview describe --print-title)" --body "$(diffview describe --print)"
 ```
 
-Keep description files outside the worktree or in a gitignored folder: an untracked file in the worktree shows up in the checked-out branch's diff, and `describe` warns when you link one.
+Keep description files outside the worktree or in a gitignored folder: an untracked file in the worktree is one `git add -A` away from being committed into the branch, and `describe` warns when you link one.
 
 The stack can carry one too, linked with `diffview describe --stack <file>` from any of its branches: what the stack is for and how its branches fit. The sidebar's **Overview** row shows it above every branch's title, first paragraph and size, and it takes comments like a branch's description. It belongs to the branches it was linked for, so it stays with the stack as branches are added on top or merge from the bottom. No stacking tool has a place for it in a PR, so `--print` hands it to whatever does.
 
@@ -99,7 +99,6 @@ On a large monorepo (hundreds of thousands of remote refs and hundreds of pack f
 | Load | Time | Where it goes |
 |---|---|---|
 | A branch that is not checked out, 10 files | 0.45 s to all diffs on screen | 0.17 s for its diff, ~0.2 s rendering |
-| The checked-out branch, 33 files | 2.4 s | 2.0 s for its diff, mostly listing untracked files (`git ls-files --others`), ~0.3 s rendering |
 | A stack, first load | 1.8–2.9 s | merge-bases against a fresh trunk; later loads hit the cache until a branch moves |
 
 The page itself is cheap: one task of about 160 ms while Pierre renders and highlights a few dozen files.
