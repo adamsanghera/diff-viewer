@@ -61,6 +61,22 @@ function viewedProgress(size) {
   return { done: false, html: "" };
 }
 
+const DOT_MIN = 4;
+const DOT_MAX = 16;
+/** Changed lines at which a dot reaches DOT_MAX; bigger branches are capped there. */
+const DOT_MAX_LINES = 1000;
+
+/**
+ * A branch's dot diameter in px, on a log scale of its changed lines, so a
+ * 10-line branch differs from a 100-line one as much as 100 does from 1,000.
+ * Even, so the dot centers on the 2px stack line without blurring.
+ */
+function dotDiameter(size) {
+  const lines = size.additions + size.deletions;
+  const scale = Math.min(1, Math.log10(1 + lines) / Math.log10(1 + DOT_MAX_LINES));
+  return 2 * Math.round((DOT_MIN + scale * (DOT_MAX - DOT_MIN)) / 2);
+}
+
 /** A branch's "merged" or "pushed" badge, from the server's merge state; empty when it is in neither trunk. */
 export function mergeBadge(branch) {
   const trunk = state.stack?.trunk ?? "trunk";
@@ -89,8 +105,9 @@ export function renderStack() {
     const viewed = viewedProgress(size);
     const sizeText = size ? `<span class="add">+${size.additions}</span> <span class="del">−${size.deletions}</span>${viewed.html ? ` · ${viewed.html}` : ""}` : "";
     const merged = state.mergeState?.[entry.id] ? " stack-merged" : "";
+    const dotStyle = size ? ` style="--dot:${dotDiameter(size)}px"` : "";
     return `<li><a class="stack-row${top}${active}${viewed.done ? " stack-viewed" : ""}${merged}" href="?${new URLSearchParams({ branch: entry.id, stack: state.stackOf })}" data-branch="${escapeHtml(entry.id)}" style="--depth:${depth}" title="${escapeHtml(entry.id)} (from ${escapeHtml(entry.source)})">
-      <span class="dot"></span><span class="stack-label"><span class="name">${escapeHtml(entry.id.slice(prefix.length))}</span><span class="stack-size">${sizeText}</span></span>${badges}</a></li>`;
+      <span class="dot"${dotStyle}></span><span class="stack-label"><span class="name">${escapeHtml(entry.id.slice(prefix.length))}</span><span class="stack-size">${sizeText}</span></span>${badges}</a></li>`;
   });
   rows.push(`<li><span class="stack-row trunk"><span class="dot"></span><span class="name">${escapeHtml(trunk ?? "trunk")}</span></span></li>`);
   if (hasOverview()) rows.unshift(overviewRow());

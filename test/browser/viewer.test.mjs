@@ -57,6 +57,28 @@ test("the page shows the stack, the branch's files, and its diff", options, asyn
   assert.deepEqual(page.errors, []);
 });
 
+test("a branch's dot grows with its changed lines and stays centered on the stack's line", options, async () => {
+  const { repo, page } = await openViewer();
+  await page.waitFor(() => document.querySelector("#live").dataset.state === "on", { what: "live reload to connect" });
+  repo.commit("big", { "src/big.js": Array.from({ length: 40 }, (_, i) => `export const n${i} = ${i};\n`).join("") });
+  await page.waitFor(() => document.querySelector('.stack-row[data-branch="feat/b"] .stack-size')?.textContent.startsWith("+41"), {
+    timeout: 10000,
+    what: "b's new size",
+  });
+  const dots = await page.eval(() =>
+    Object.fromEntries(
+      [...document.querySelectorAll("#stack .stack-row:has(.dot)")].map((row) => {
+        const dot = row.querySelector(".dot").getBoundingClientRect();
+        const line = getComputedStyle(row, "::before");
+        const lineCenter = row.getBoundingClientRect().left + parseFloat(line.left) + parseFloat(line.width) / 2;
+        return [row.querySelector(".name").textContent, { width: dot.width, offCenter: dot.left + dot.width / 2 - lineCenter }];
+      }),
+    ),
+  );
+  assert.ok(dots.b.width > dots.a.width, JSON.stringify(dots));
+  assert.deepEqual(Object.values(dots).map((d) => d.offCenter), [0, 0, 0], JSON.stringify(dots));
+});
+
 test("clicking a branch shows its diff, and Unified switches to one column", options, async () => {
   const { page } = await openViewer();
   await page.eval(() => document.querySelector('.stack-row[data-branch="feat/a"]').click());
