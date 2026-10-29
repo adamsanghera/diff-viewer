@@ -8,6 +8,7 @@ import {
   renderAnnotation,
   ROW_MARK_CSS,
   scheduleLayout,
+  markSelectionSide,
   selectedLines,
   viewedState,
 } from "./comments.js";
@@ -130,6 +131,8 @@ function renderFileViews() {
       unsafeCSS: GRAPHITE_DIFF_CSS + ROW_MARK_CSS,
       enableLineSelection: state.comments.enabled,
       lineHoverHighlight: state.comments.enabled ? "both" : "disabled",
+      onLineSelectionStart: (range) => markSelectionSide(item, range),
+      onLineSelectionChange: (range) => markSelectionSide(item, range),
       onLineSelectionEnd: (range) => selectedLines(item, range),
       onLineClick: (props) => clickedLine(item, props),
       onPostRender: () => {

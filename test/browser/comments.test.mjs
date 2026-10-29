@@ -106,6 +106,17 @@ test("the lines under the pointer, and the lines being selected, are tinted unti
     what: "three rows selected mid-drag",
   });
   assert.deepEqual(await tinted("data-selected-line"), ["9:tinted", "10:tinted", "11:tinted"]);
+  const otherSide = await page.eval(() =>
+    [...document.querySelector(".file-diff > *").shadowRoot.querySelectorAll("code[data-deletions] [data-line][data-selected-line]")].map((row) => {
+      const style = getComputedStyle(row);
+      return style.backgroundImage.startsWith("linear-gradient(rgba(0, 0, 0, 0)") && style.boxShadow === "none";
+    }),
+  );
+  assert.ok(otherSide.length > 0, "Pierre marks the old side's rows of a split diff too");
+  assert.ok(
+    otherSide.every(Boolean),
+    "but only the side being selected is tinted",
+  );
 
   await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...(await centerOf(11)), button: "left", clickCount: 1 });
   await page.waitFor(() => !document.querySelector("#composer").hidden, { what: "the composer" });
