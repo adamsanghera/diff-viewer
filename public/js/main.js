@@ -62,6 +62,15 @@ async function loadStack() {
   $("#source-chip").title = "Where this stack's parents came from";
   $("#source-chip").hidden = false;
   renderStack();
+  // Sizes need every branch's diff, so the stack shows first and they fill in.
+  loadStackSizes().catch(() => {});
+}
+
+/** Each branch's +/− for the sidebar, from the overview's summary of the stack. */
+async function loadStackSizes() {
+  const { branches } = await getJson(`/api/overview?${new URLSearchParams({ stack: state.stackOf })}`);
+  state.stackSizes = Object.fromEntries(branches.map((b) => [b.id, b]));
+  renderStack();
 }
 
 /** The overview's branches, and the stack description's entry, which comments on the overview belong to; null until one is written. */
@@ -69,8 +78,10 @@ async function loadOverview() {
   state.overview = await getJson(`/api/overview?${new URLSearchParams({ stack: state.stackOf })}`);
   state.branch = state.overview.entry;
   state.diff = state.overview.diff;
+  state.stackSizes = Object.fromEntries(state.overview.branches.map((b) => [b.id, b]));
   renderOverview();
   renderTree();
+  renderStack();
 }
 
 async function loadDiff({ force = false } = {}) {

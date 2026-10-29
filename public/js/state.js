@@ -10,6 +10,8 @@ export const state = {
   stack: null,
   /** While the stack's overview shows instead of a branch: {entry, diff, branches} from /api/overview. */
   overview: null,
+  /** Each branch's {additions, deletions} for the sidebar, by branch name; null until they load. */
+  stackSizes: null,
   diff: null,
   /** The branch's description: {seq, title, html, sha256, ...}, or null when it has none. */
   description: null,
