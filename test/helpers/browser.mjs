@@ -133,6 +133,13 @@ async function connect(wsUrl, closeTarget) {
 
   const page = {
     send,
+    /** Calls `listener` with the params of every `method` event, until the returned function is called. */
+    on(method, listener) {
+      const set = listeners.get(method) ?? new Set();
+      set.add(listener);
+      listeners.set(method, set);
+      return () => set.delete(listener);
+    },
     /** Uncaught exceptions the page has thrown so far. */
     errors,
     /**
