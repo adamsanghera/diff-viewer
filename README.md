@@ -55,6 +55,16 @@ Agents reply and suggest that a thread is resolved. Only you resolve or reopen o
 
 A comment follows its lines' text, not their numbers, so a rebase that moves them keeps it in place. When the lines themselves change, as when an agent edits them, the thread goes outdated: it leaves the margin for the list (the speech-bubble button), says what the lines now read, and links to the version it was made on. The version chip (`v3`) lists every version of a branch's diff that comments were made on.
 
+### Descriptions
+
+Each branch can carry a description: Markdown, usually written by the agent that built the branch, shown above its diff. Select text in it and click **Comment** to leave a thread on that passage; it follows its paragraph through rewrites the way comments follow lines. The description is meant to become the PR:
+
+```bash
+diffview describe --title "Share compute()" --stdin < why-and-how.md   # writes a new version
+diffview describe                                                      # prints it, with its version
+gh pr create --title "$(diffview describe --print-title)" --body "$(diffview describe --print)"
+```
+
 Mark a file **Viewed** to collapse it. When its diff changes, the mark clears and it shows **Changed since viewed**.
 
 Comments live in `~/.diffview/diffview.sqlite3` (set `DIFFVIEW_HOME` to move it), keyed by each repo's git common dir and branch name, so every worktree of a repo shares them. Deleting is permanent and only in the page. [`skills/diffview-comments/SKILL.md`](skills/diffview-comments/SKILL.md) teaches an agent this loop. Copy it into your agent's skills folder.

@@ -24,6 +24,7 @@ import {
   toggleInline,
   viewedState,
 } from "./comments.js";
+import { renderDescription } from "./description.js";
 import { escapeHtml, shortSha, startsCollapsed } from "./lib/format.js";
 import { buildTree, stackRows } from "./lib/tree.js";
 import { $, getJson, root, state, toast } from "./state.js";
@@ -277,6 +278,14 @@ function rerenderFiles() {
 
 /* Loading */
 
+async function loadDescription() {
+  if (!state.comments.enabled) return;
+  const { description } = await getJson(`/api/description?${new URLSearchParams({ branch: state.branch })}`);
+  if (description?.sha256 === state.description?.sha256 && $("#description").innerHTML) return;
+  state.description = description;
+  renderDescription();
+}
+
 async function loadStack() {
   state.stack = await getJson(`/api/stack?${new URLSearchParams({ branch: state.stackOf })}`);
   const source = [...new Set(state.stack.entries.map((e) => e.source))].join(", ");
@@ -312,7 +321,8 @@ async function show(branch, { push = true, version = null } = {}) {
   if (push) writeLocation();
   renderStack();
   try {
-    await loadDiff({ force: true });
+    state.description = null;
+    await Promise.all([loadDiff({ force: true }), loadDescription()]);
     await loadComments();
     scrollTo(0, 0);
   } catch (err) {
@@ -334,6 +344,7 @@ async function refresh() {
     try {
       await loadStack();
       if (!state.version) await loadDiff();
+      await loadDescription();
       await loadComments();
     } catch (err) {
       toast(err.message);
@@ -360,6 +371,7 @@ function connectLive() {
     const store = new EventSource("/api/store-events");
     store.addEventListener("change", async () => {
       try {
+        if (!composerOpen()) await loadDescription();
         await loadComments();
         await loadStack();
       } catch {
@@ -465,7 +477,7 @@ async function main() {
   });
   try {
     await loadStack();
-    await loadDiff({ force: true });
+    await Promise.all([loadDiff({ force: true }), loadDescription()]);
     await loadComments();
   } catch (err) {
     $("#branch-head").innerHTML = `<p class="error">${escapeHtml(err.message)}</p>`;

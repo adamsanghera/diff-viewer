@@ -9,6 +9,8 @@ export const state = {
   branch: null,
   stack: null,
   diff: null,
+  /** The branch's description: {seq, title, html, sha256, ...}, or null when it has none. */
+  description: null,
   /** The stored version shown instead of the current diff, or null. */
   version: null,
   /** Per rendered file: {file, fileDiff, view, options, section}. */

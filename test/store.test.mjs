@@ -171,6 +171,61 @@ test("only a human deletes, and a review's last thread takes its versions along"
   assert.deepEqual(store.versions(REPO, ENTRY), []);
 });
 
+const DESC_V1 = "## Why\n\nThe store keeps every version.\n\n## How\n\n- Add a table.\n- Rebuild threads.\n";
+
+test("a description keeps a version per change, and identical writes add none", async () => {
+  const store = await freshStore();
+  assert.equal(store.description(REPO, ENTRY), null);
+  const v1 = store.setDescription(REPO, ENTRY, { title: "Store descriptions", body: DESC_V1 }, AGENT);
+  assert.deepEqual([v1.seq, v1.title, v1.authorKind], [1, "Store descriptions", "agent"]);
+  assert.equal(store.setDescription(REPO, ENTRY, { title: "Store descriptions", body: `${DESC_V1}\n\n` }, AGENT).seq, 1);
+  store.setDescription(REPO, ENTRY, { title: "Store descriptions", body: DESC_V1.replace("Add a table", "Add two tables") }, AGENT);
+  assert.deepEqual([store.description(REPO, ENTRY).seq, store.description(REPO, ENTRY, { seq: 1 }).body], [2, DESC_V1]);
+  assert.throws(() => store.setDescription(REPO, ENTRY, { body: "  " }, AGENT), /needs text/);
+});
+
+test("a comment on a description follows its block, and goes outdated with a guess when the block changes", async () => {
+  const store = await freshStore();
+  const v1 = store.setDescription(REPO, ENTRY, { body: DESC_V1 }, AGENT);
+  const id = store.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: v1.sha256, quote: "Rebuild threads", body: "Why rebuild?", author: HUMAN });
+  let t = store.thread(id).thread;
+  assert.deepEqual([t.kind, t.state, t.heading, t.blockText, t.start], ["description", "current", "How", "- Rebuild threads.", 0]);
+  store.setDescription(REPO, ENTRY, { body: `Intro paragraph.\n\n${DESC_V1}` }, AGENT);
+  t = store.thread(id).thread;
+  assert.deepEqual([t.state, t.madeOn.seq], ["carried", 1]);
+  store.setDescription(REPO, ENTRY, { body: DESC_V1.replace("Rebuild threads.", "Rebuild the threads table.") }, AGENT);
+  t = store.thread(id).thread;
+  assert.deepEqual([t.state, t.blockText, t.nowReads?.text], ["outdated", "- Rebuild threads.", "- Rebuild the threads table."]);
+  assert.throws(
+    () => store.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: "nope", quote: "x", body: "x", author: HUMAN }),
+    /not stored/,
+  );
+});
+
+test("a version 2 store gains description threads, keeping its threads, after a backup", async () => {
+  const home = tempHome();
+  const { DatabaseSync } = await import("node:sqlite");
+  const old = new DatabaseSync(path.join(home, "diffview.sqlite3"));
+  old.exec(`CREATE TABLE reviews (id INTEGER PRIMARY KEY, repo TEXT NOT NULL, entry TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE (repo, entry));
+    CREATE TABLE versions (id INTEGER PRIMARY KEY, review_id INTEGER NOT NULL, seq INTEGER NOT NULL, base TEXT NOT NULL, head TEXT NOT NULL, working_tree INTEGER NOT NULL, sha256 TEXT NOT NULL, patch TEXT NOT NULL, observed_at TEXT NOT NULL);
+    CREATE TABLE threads (id INTEGER PRIMARY KEY, review_id INTEGER NOT NULL REFERENCES reviews(id), version_id INTEGER NOT NULL REFERENCES versions(id),
+      kind TEXT NOT NULL CHECK (kind IN ('lines', 'file', 'branch')), path TEXT, side TEXT, start_line INTEGER, end_line INTEGER, lines_sha TEXT,
+      ordinal INTEGER NOT NULL, repeats INTEGER NOT NULL, quote TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', status_by TEXT, status_at TEXT, created_at TEXT NOT NULL);
+    CREATE TABLE messages (id INTEGER PRIMARY KEY, thread_id INTEGER NOT NULL REFERENCES threads(id), author TEXT NOT NULL, author_kind TEXT NOT NULL, body TEXT NOT NULL,
+      version_id INTEGER NOT NULL, session TEXT, created_at TEXT NOT NULL, sent_at TEXT, pending INTEGER GENERATED ALWAYS AS (sent_at IS NULL) VIRTUAL);
+    INSERT INTO reviews VALUES (1, '${REPO}', '${ENTRY}', 'x');
+    INSERT INTO versions VALUES (1, 1, 1, 'b', 'h', 0, 'sha', ${JSON.stringify(V1.patch).replace(/^"|"$/g, "'").replace(/\\n/g, "\n")}, 'x');
+    INSERT INTO threads (id, review_id, version_id, kind, ordinal, repeats, quote, created_at) VALUES (1, 1, 1, 'branch', 0, 0, '', 'x');
+    INSERT INTO messages (thread_id, author, author_kind, body, version_id, created_at, sent_at) VALUES (1, 'adam', 'human', 'kept?', 1, 'x', 'x');
+    PRAGMA user_version = 2;`);
+  old.close();
+  const store = await openStore(home);
+  assert.equal(store.thread(1).thread.messages[0].body, "kept?");
+  assert.equal(fs.readdirSync(path.join(home, "backups")).length, 1);
+  const v1 = store.setDescription(REPO, ENTRY, { body: DESC_V1 }, AGENT);
+  store.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: v1.sha256, quote: "Add a table", body: "ok", author: HUMAN });
+});
+
 test("the change token moves on writes from any process, and not on reads", async () => {
   const home = tempHome();
   const viewer = await openStore(home);

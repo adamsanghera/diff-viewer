@@ -10,6 +10,7 @@
  * Pierre's unsafeCSS option tint. Pierre redraws rows on every render, so
  * the marks are applied again after each one.
  */
+import { anchorFromRange, blockAt, descriptionTarget, paintDescription, threadAtPoint } from "./description.js";
 import { stackCards } from "./lib/card-stack.js";
 import { anchorLabel, railHead, railList, threadCard } from "./lib/cards.js";
 import { escapeHtml } from "./lib/format.js";
@@ -139,6 +140,7 @@ export function clickedLine(item, props) {
 export async function loadComments() {
   if (!state.comments.enabled || !state.diff) return;
   const params = new URLSearchParams({ branch: state.branch, sha: state.diff.sha });
+  if (state.description) params.set("descriptionSha", state.description.sha256);
   const data = await getJson(`/api/comments?${params}`);
   const before = JSON.stringify([state.comments.threads, state.comments.viewed]);
   state.comments.threads = data.threads;
@@ -160,6 +162,7 @@ export function renderComments({ annotationsChanged = false } = {}) {
   root.classList.toggle("rail-docked", railShown());
   if (annotationsChanged) commentHooks.rerenderFiles();
   for (const item of state.views) markRows(item);
+  paintDescription(placedThreads().filter((t) => t.kind === "description"), state.comments.active, markOf);
   renderBranchThreads();
   renderRail();
 }
@@ -184,10 +187,14 @@ function renderHeader() {
   }
 }
 
-/** Whole-branch threads sit under the branch's header, whether threads show in the rail or inline. */
+/**
+ * Whole-branch threads sit under the description, whether threads show in
+ * the rail or inline. Inline, the description's own threads join them.
+ */
 function renderBranchThreads() {
   const box = $("#branch-threads");
-  const threads = placedThreads().filter((t) => t.kind === "branch");
+  const inline = threadsInline() && !state.comments.listMode;
+  const threads = placedThreads().filter((t) => t.kind === "branch" || (inline && t.kind === "description"));
   box.innerHTML = threads.map((t) => threadCard(t, { expanded: t.id === state.comments.active, batching: batching() })).join("");
 }
 
@@ -228,8 +235,8 @@ function layoutRail() {
   for (const card of rail.querySelectorAll(".thread")) {
     const thread = state.comments.threads.find((t) => t.id === Number(card.dataset.thread));
     const item = thread && state.views.find((v) => v.file.path === thread.path);
-    if (!item) continue;
-    const anchor = (thread.kind === "lines" && rowsOf(item, thread)[0]) || item.section;
+    const anchor = thread?.kind === "description" ? descriptionTarget(thread) : item && ((thread.kind === "lines" && rowsOf(item, thread)[0]) || item.section);
+    if (!anchor) continue;
     items.push({ card, id: thread.id, target: anchor.getBoundingClientRect().top - railTop, height: card.offsetHeight });
   }
   items.sort((a, b) => a.target - b.target);
@@ -262,7 +269,10 @@ export function activate(id, { scroll = false } = {}) {
   renderComments();
   if (scroll && thread) {
     const item = state.views.find((v) => v.file.path === thread.path);
-    const target = (item && thread.kind === "lines" && rowsOf(item, thread)[0]) || item?.section || $("#branch-head");
+    const target =
+      thread.kind === "description"
+        ? $(`#description-body [data-block="${thread.blockIndex}"]`) ?? $("#description")
+        : (item && thread.kind === "lines" && rowsOf(item, thread)[0]) || item?.section || $("#branch-head");
     target?.scrollIntoView({ block: "center" });
   }
   document.querySelector(`.thread.expanded[data-thread="${id}"] textarea.reply`)?.focus({ preventScroll: true });
@@ -279,7 +289,13 @@ function deactivate() {
 function openComposer(target, anchorEl) {
   const composer = $("#composer");
   state.comments.composer = target;
-  $("#composer-where").textContent = target.kind === "branch" ? `Comment on ${state.branch}` : `Comment on ${anchorLabel({ ...target, path: target.path })}`;
+  $("#composer-where").textContent =
+    target.kind === "branch"
+      ? `Comment on ${state.branch}`
+      : target.kind === "description"
+        ? `Comment on the description: “${target.quote.length > 60 ? `${target.quote.slice(0, 59)}…` : target.quote}”`
+        : `Comment on ${anchorLabel({ ...target, path: target.path })}`;
+  $("#comment-btn").hidden = true;
   composer.hidden = false;
   const rect = anchorEl.getBoundingClientRect();
   composer.style.top = `${rect.bottom + scrollY + 6}px`;
@@ -324,6 +340,35 @@ export function selectedLines(item, range) {
   openComposer({ kind: "lines", path: item.file.path, side, startLine, endLine, item }, row);
 }
 
+/** Shows the floating Comment button beside a selection of the description's text, or hides it. */
+function updateCommentButton() {
+  const button = $("#comment-btn");
+  const selection = getSelection();
+  const range = selection.rangeCount && !selection.isCollapsed ? selection.getRangeAt(0) : null;
+  if (!state.comments.enabled || composerOpen() || !range || !blockAt(range.startContainer) || state.version?.old) {
+    button.hidden = true;
+    return;
+  }
+  const rects = range.getClientRects();
+  const rect = rects[rects.length - 1] ?? range.getBoundingClientRect();
+  button.hidden = false;
+  button.style.left = `${Math.min(rect.right + 6, innerWidth - button.offsetWidth - 8) + scrollX}px`;
+  button.style.top = `${rect.top + scrollY - 3}px`;
+}
+
+/** The Comment button: opens the composer on the selected text of the description. */
+function commentOnSelection() {
+  const selection = getSelection();
+  if (!selection.rangeCount || selection.isCollapsed || !state.description) return;
+  const range = selection.getRangeAt(0).cloneRange();
+  const anchor = anchorFromRange(range);
+  if (!anchor) {
+    toast("Select text inside one paragraph, heading, list item or code block of the description");
+    return;
+  }
+  openComposer({ kind: "description", descriptionSha: state.description.sha256, ...anchor }, range);
+}
+
 /** A file header's Comment button. */
 export function commentOnFile(item, button) {
   openComposer({ kind: "file", path: item.file.path, side: "new", item }, button);
@@ -344,6 +389,10 @@ async function submitComment(mode) {
       side: target.side ?? "new",
       startLine: target.startLine ?? null,
       endLine: target.endLine ?? null,
+      descriptionSha: target.descriptionSha,
+      blockIndex: target.blockIndex,
+      quote: target.quote ?? "",
+      start: target.start,
       body,
       pending: mode === "batch" || mode === "send",
     });
@@ -513,6 +562,22 @@ export function initComments() {
   });
   $("#composer-text").addEventListener("input", (event) => autosize(event.target));
   $("#comment-branch").addEventListener("click", (event) => openComposer({ kind: "branch" }, event.currentTarget));
+  const commentButton = $("#comment-btn");
+  commentButton.addEventListener("mousedown", (event) => event.preventDefault());
+  commentButton.addEventListener("click", commentOnSelection);
+  // A click inside the selection collapses it only after mouseup, so check on the next tick.
+  document.addEventListener("mouseup", () => setTimeout(updateCommentButton));
+  document.addEventListener("keyup", (event) => {
+    if (event.shiftKey || event.key === "Shift") updateCommentButton();
+  });
+  document.addEventListener("selectionchange", () => {
+    if (getSelection().isCollapsed) $("#comment-btn").hidden = true;
+  });
+  $("#description").addEventListener("click", (event) => {
+    if (!getSelection().isCollapsed) return;
+    const id = threadAtPoint(event.clientX, event.clientY);
+    if (id !== null) activate(id);
+  });
 
   $("#batch-send").addEventListener("click", () => act("/api/comments/batch/send"));
   $("#batch-discard").addEventListener("click", () => act("/api/comments/batch/discard", {}, { confirmText: "Discard every pending comment?" }));

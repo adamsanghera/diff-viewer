@@ -79,8 +79,14 @@ test("requests naming another host, or other methods, are refused", async () => 
 
 /** A server with a store of its own, and a post() that writes the way the page does. */
 async function serveWithStore(repo) {
+  return serveWithStoreAndHandle(repo);
+}
+
+/** As serveWithStore, also handing back the store, for writes an agent would make. */
+async function serveWithStoreAndHandle(repo) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "diffview-writes-"));
-  const started = await startServer({ dir: repo.dir, port: 4900, store: await openStore(home) });
+  const store = await openStore(home);
+  const started = { ...(await startServer({ dir: repo.dir, port: 4900, store })), store };
   servers.push(started);
   const origin = started.url.replace(/\/$/, "");
   const post = async (route, body, headers = { origin, "content-type": "application/json" }) => {
@@ -133,6 +139,24 @@ test("a stored version can be read back while the branch moves on", async () => 
   const old = await get("/api/diff?branch=b&v=1");
   assert.deepEqual([old.sha, old.old, old.version.seq], [v1.sha, true, 1]);
   assert.deepEqual((await get("/api/versions?branch=b")).versions.map((v) => v.seq), [2, 1]);
+});
+
+test("a description renders without raw HTML, and the page comments on its text", async () => {
+  const repo = stackRepo();
+  const { post, get, store, repo: served } = await serveWithStoreAndHandle(repo);
+  assert.equal((await get("/api/description?branch=b")).description, null);
+  const written = store.setDescription(served.commonDir, "b", { title: "Two", body: "## Why\n\nWe need *two*.\n\n<script>alert(1)</script>\n" }, { name: "agent", kind: "agent" });
+  const { description } = await get("/api/description?branch=b");
+  assert.equal(description.title, "Two");
+  assert.match(description.html, /<h2 data-block="0">Why<\/h2>/);
+  assert.match(description.html, /<p data-block="1">We need <em>two<\/em>\.<\/p>/);
+  assert.doesNotMatch(description.html, /<script>/);
+  const diff = await get("/api/diff?branch=b");
+  const created = await post("/api/comments", { branch: "b", sha: diff.sha, kind: "description", descriptionSha: written.sha256, blockIndex: 1, quote: "need two", start: 3, body: "Why two?" });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const { threads } = await get(`/api/comments?branch=b&sha=${diff.sha}&descriptionSha=${written.sha256}`);
+  assert.deepEqual([threads[0].kind, threads[0].state, threads[0].blockIndex, threads[0].start], ["description", "current", 1, 3]);
+  assert.equal((await post("/api/comments", { branch: "b", sha: diff.sha, kind: "description", descriptionSha: "stale", blockIndex: 1, body: "x" })).status, 400);
 });
 
 test("the doorbell rings when another process writes to the store", async () => {

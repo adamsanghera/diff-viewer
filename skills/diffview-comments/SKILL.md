@@ -1,6 +1,6 @@
 ---
 name: diffview-comments
-description: Read and answer comments a human left on a branch's diff in diffview, using the `diffview comments` CLI. Use when asked to address, answer, or work through review comments or feedback on a branch, PR or stack reviewed locally, when the user mentions diffview, or says "check my comments on <branch>".
+description: Read and answer comments a human left on a branch's diff or description in diffview, and write each branch's PR description, using the `diffview comments` and `diffview describe` CLIs. Use when asked to address, answer, or work through review comments or feedback on a branch, PR or stack reviewed locally, when authoring a stack the human reviews in diffview, when the user mentions diffview, or says "check my comments on <branch>".
 ---
 
 # diffview comments
@@ -42,6 +42,30 @@ branch (repeatable), `--repo` widens it to every commented branch, and
 Never resolve or reopen a thread. Both belong to the human, and the CLI
 refuses them without `--human`, a flag that is not for you.
 
+## Descriptions
+
+Each branch in a stack has a description: Markdown that diffview shows
+above the branch's diff, that the human comments on like the code, and that
+becomes the PR's body. When you author or change a branch, write or update
+its description:
+
+```bash
+diffview describe --branch <b> --title "Short PR title" --stdin <<'EOF'
+## Why
+...
+## How
+...
+## Testing
+...
+EOF
+diffview describe --branch <b>                   # read it back
+gh pr create --title "$(diffview describe --print-title)" --body "$(diffview describe --print)"
+```
+
+Each write keeps a new version. A thread on the description names its
+section and paragraph; answer it by rewriting the description (or replying
+to say why not), then suggest resolving it.
+
 ## Where a thread sits
 
 - `src/app.js lines 40-42`: on those lines of the diff as it reads now.
@@ -53,6 +77,9 @@ refuses them without `--human`, a flag that is not for you.
   they were and what they now read. Check whether that change already
   answers the comment before editing again.
 - `the whole file ...` and `the whole branch` have no lines.
+- `the description under "How"`: on the branch's description, in that
+  section. `from description v2, unchanged` and `outdated: made on
+  description v2, its paragraph changed since` work as for lines.
 
 ## Also
 

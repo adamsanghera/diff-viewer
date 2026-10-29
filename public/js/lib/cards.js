@@ -15,6 +15,7 @@ export const GROUPS = [
 
 /** Where a thread sits, in words: "app.js:12-14", "app.js (old side):9", "app.js", or "whole branch". */
 export function anchorLabel(t) {
+  if (t.kind === "description") return t.heading ? `description · ${t.heading}` : "description";
   if (t.kind === "branch") return "whole branch";
   const file = t.path.split("/").pop();
   if (t.kind === "file") return file;
@@ -28,8 +29,10 @@ function threadChips(t) {
   if (t.status === "suggested") chips.push('<span class="chip chip-suggested">Agent suggests resolving</span>');
   if (t.status === "open" && t.waitingOn === "human") chips.push('<span class="chip chip-turn" title="The agent answered. This waits on you.">Your turn</span>');
   if (t.status === "resolved") chips.push('<span class="chip">Resolved</span>');
-  if (t.state === "carried") chips.push(`<span class="chip" title="Made on v${t.madeOn.seq}. Its lines have not changed since.">from v${t.madeOn.seq}</span>`);
-  if (t.state === "outdated") chips.push(`<span class="chip chip-outdated" title="Its lines changed after v${t.madeOn.seq}.">outdated · made on v${t.madeOn.seq}</span>`);
+  const of = t.kind === "description" ? "description " : "";
+  const what = t.kind === "description" ? "paragraph" : "lines";
+  if (t.state === "carried") chips.push(`<span class="chip" title="Made on ${of}v${t.madeOn.seq}. Its ${what} have not changed since.">from ${of}v${t.madeOn.seq}</span>`);
+  if (t.state === "outdated") chips.push(`<span class="chip chip-outdated" title="Its ${what} changed after ${of}v${t.madeOn.seq}.">outdated · made on ${of}v${t.madeOn.seq}</span>`);
   return chips.join("");
 }
 
@@ -61,6 +64,10 @@ function threadControls(t, batching) {
 
 /** For an outdated thread: what its lines became, and a link to the version it was made on. */
 function nowReads(t) {
+  if (t.state === "outdated" && t.kind === "description") {
+    const text = t.nowReads ? `<strong>Now reads:</strong> ${escapeHtml(truncate(t.nowReads.text.replace(/\s+/g, " "), NOW_READS_PREVIEW_CHARS))}` : "<strong>Its paragraph was removed or rewritten.</strong>";
+    return `<p class="now-reads">${text}</p>`;
+  }
   if (t.state !== "outdated" || t.kind !== "lines") return "";
   const text = t.nowReads
     ? `<strong>Now reads:</strong> <code>${escapeHtml(truncate(t.nowReads.text.replace(/\s+/g, " "), NOW_READS_PREVIEW_CHARS))}</code>`
@@ -70,6 +77,7 @@ function nowReads(t) {
 
 /** The lines a thread was made on, as they read then, for outdated cards and the list. */
 function excerpt(t) {
+  if (t.kind === "description") return t.quote ? `<blockquote class="thread-quote">${escapeHtml(t.quote)}</blockquote>` : "";
   const marked = t.excerpt.filter((l) => l.marked);
   if (!marked.length) return "";
   return `<pre class="thread-excerpt">${marked.map((l) => escapeHtml(l.text)).join("\n")}</pre>`;
@@ -86,7 +94,7 @@ export function threadCard(t, { expanded = false, batching = false, listed = fal
   const hidden = t.messages.length - shown.length;
   if (hidden) items.splice(1, 0, `<li class="message more">${hidden} more</li>`);
   const where = listed ? `<span class="thread-where">${escapeHtml(anchorLabel(t))}</span>` : "";
-  const lines = listed || t.state === "outdated" ? excerpt(t) : "";
+  const lines = listed || t.state === "outdated" || t.kind === "description" ? excerpt(t) : "";
   return `<section class="thread${expanded ? " expanded" : ""}" data-thread="${t.id}" data-status="${t.status}" data-pending="${t.pending}" data-turn="${t.waitingOn ?? ""}">
     <header class="thread-head"><span class="thread-id">#${t.id}</span>${where}${threadChips(t)}</header>
     ${lines}

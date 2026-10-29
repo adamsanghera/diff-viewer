@@ -133,6 +133,46 @@ test("marking a file viewed collapses it, and an edit to it clears the mark", op
   assert.match(await page.eval(() => document.querySelector(".file-diff > *").querySelector(".viewed").textContent), /Changed since viewed/);
 });
 
+test("the agent's description shows above the diff, and selected text in it takes a comment", options, async () => {
+  const { page, home, started } = await openViewer();
+  assert.match(await page.eval(() => document.querySelector("#description").innerText), /No description yet/);
+  const agent = await openStore(home);
+  const body = "## Why\n\nCallers repeat the doubling logic.\n\n## How\n\n- Add `compute()` in util.js.\n";
+  agent.setDescription(started.repo.commonDir, "feat/b", { title: "Share compute()", body }, { name: "agent", kind: "agent" });
+  await page.waitFor(() => document.querySelector(".description-title")?.textContent === "Share compute()", { what: "the description to arrive live" });
+
+  await page.eval(() => {
+    const paragraph = document.querySelector('#description-body [data-block="1"]');
+    const text = paragraph.firstChild;
+    const range = document.createRange();
+    range.setStart(text, text.data.indexOf("repeat"));
+    range.setEnd(text, text.data.indexOf("repeat") + "repeat the doubling".length);
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+  });
+  await page.waitFor(() => !document.querySelector("#comment-btn").hidden, { what: "the Comment button" });
+  await page.eval(() => document.querySelector("#comment-btn").click());
+  await page.waitFor(() => !document.querySelector("#composer").hidden);
+  assert.match(await page.eval(() => document.querySelector("#composer-where").textContent), /repeat the doubling/);
+  await typeAndPress(page, "Which callers?");
+  await page.waitFor(() => document.querySelector("#rail .thread"), { what: "the card" });
+  const offset = await page.eval(() => {
+    const block = document.querySelector('#description-body [data-block="1"]');
+    return Math.abs(document.querySelector("#rail .thread").getBoundingClientRect().top - block.getBoundingClientRect().top);
+  });
+  assert.ok(offset < 6, `the card sits ${offset}px from its paragraph`);
+  assert.equal(await page.eval(() => CSS.highlights.get("dv-description-open")?.size), 1);
+
+  const [{ id }] = await page.eval(railCards);
+  assert.equal(agent.thread(id).thread.quote, "repeat the doubling");
+  agent.setDescription(started.repo.commonDir, "feat/b", { title: "Share compute()", body: body.replace("Callers repeat the doubling logic.", "Two callers repeat the doubling logic.") }, { name: "agent", kind: "agent" });
+  agent.close();
+  await page.waitFor(() => document.querySelector(".description-meta")?.textContent.includes("v2"), { what: "description v2" });
+  await page.waitFor(() => !document.documentElement.classList.contains("rail-docked"), { what: "the outdated thread to leave the margin" });
+  assert.equal(await page.eval(() => CSS.highlights.get("dv-description-open")?.size ?? 0), 0);
+});
+
 test("a comment survives an edit elsewhere in the file, and goes outdated when its line changes", options, async () => {
   const { page, repo } = await openViewer();
   await commentOnLine11(page);

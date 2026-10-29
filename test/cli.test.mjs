@@ -158,6 +158,54 @@ test("a pending comment wakes nobody until the batch is sent", async () => {
   assert.equal(ctx.cli("wait", "--timeout", "1s").status, 3);
 });
 
+/** Runs `diffview describe` in the fixture repo. */
+function describe(ctx, input, ...args) {
+  const res = spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", BIN, "describe", ...args], {
+    cwd: ctx.repo.dir,
+    env: { ...process.env, DIFFVIEW_HOME: ctx.home, DIFFVIEW_AUTHOR: "spec-agent" },
+    encoding: "utf8",
+    input,
+  });
+  return { status: res.status, out: res.stdout, err: res.stderr };
+}
+
+test("describe writes a branch's description, and prints it whole, as a body, or as a title", () => {
+  const ctx = setup();
+  assert.equal(describe(ctx, undefined).status, 1);
+  assert.match(describe(ctx, "## Why\n\nAdd add().\n", "--stdin", "--title", "Use add()").out, /Description of feat\/b is v1/);
+  assert.match(describe(ctx, undefined).out, /^feat\/b · description v1 · spec-agent .*\n\n# Use add\(\)\n\n## Why\n\nAdd add\(\)\.\n$/);
+  assert.equal(describe(ctx, undefined, "--print").out, "## Why\n\nAdd add().\n");
+  assert.equal(describe(ctx, undefined, "--print-title").out, "Use add()\n");
+  assert.match(describe(ctx, undefined, "--title", "Use add() everywhere").out, /v2/, "a new title keeps the body");
+  assert.equal(describe(ctx, undefined, "--print").out, "## Why\n\nAdd add().\n");
+  assert.equal(describe(ctx, undefined, "--branch", "nope", "-m", "x").status, 2);
+});
+
+test("a comment on the description shows in list and show with its paragraph", async () => {
+  const ctx = setup();
+  describe(ctx, "## Why\n\nAdd add() so callers share it.\n", "--stdin");
+  const opened = await openRepo(ctx.repo.dir);
+  const stack = await loadStack(opened, { entry: "feat/b" });
+  const entry = stack.entries.find((e) => e.id === "feat/b");
+  const { patch } = await branchDiff(opened, entry, { workingTree: true });
+  const store = await openStore(ctx.home);
+  const id = store.createThread({
+    repo: opened.commonDir,
+    entry: "feat/b",
+    snapshot: { base: entry.base, head: entry.head, workingTree: true, patch },
+    kind: "description",
+    descriptionSha: store.description(opened.commonDir, "feat/b").sha256,
+    quote: "callers share it",
+    body: "Which callers?",
+    author: HUMAN,
+  });
+  store.close();
+  assert.match(ctx.cli("list").out, new RegExp(`#${id} open · waiting on agent · the description under "Why"`));
+  const show = ctx.cli("show", String(id));
+  assert.match(show.out, /In the description:\n {4}Add add\(\) so callers share it\./);
+  assert.match(show.out, /To change it: diffview describe --branch feat\/b --stdin/);
+});
+
 test("no verb changes the repo", async () => {
   const ctx = setup();
   const snapshot = () => [ctx.repo.git("for-each-ref"), ctx.repo.git("status", "--porcelain"), fs.readFileSync(path.join(ctx.repo.commonDir(), "config"), "utf8")];
