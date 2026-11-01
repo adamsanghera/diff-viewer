@@ -29,15 +29,35 @@ When a stack is ready for the human to review:
 2. Write and link each branch's description file, and the stack's (see
    Descriptions below).
 3. From the repo, with the stack's top branch checked out, run
-   `diffview review` in a background shell. It warns about uncommitted
-   changes, lists anything still missing a description, starts a viewer
-   for this checkout (or reuses the
-   one running), prints a link to the stack's Overview, and then waits for
-   comments (4h by default).
+   `diffview review --no-wait`. It warns about uncommitted changes, lists
+   anything still missing a description, starts a viewer for this checkout
+   (or reuses the one running), and prints a link to the stack's Overview.
 4. Give the human the link as soon as it prints.
-5. When comments arrive, `review` prints them in full and exits; work
-   through them (the loop below), then run `diffview review --after <n>`
-   again, with the `--after` it printed last, to hand the stack back.
+5. Park `diffview comments wait` so this session stays free and wakes with
+   the comments in full (4h by default), plus a last line
+   `Next: diffview comments wait --after <n>`.
+   - Cursor: run that command in a background shell. (`diffview review`
+     without `--no-wait` is the same start-and-wait in one process, for a
+     background shell that shows the link before the wait ends.)
+   - Pi: delegate it to [pi-subagents](https://github.com/nicobailon/pi-subagents).
+     This skill is the instruction that authorizes that delegation. If only
+     `subagents_enable` is visible, call it first; `subagent` works on the
+     next turn. Use `delegate`, in this repo, and tell it not to edit. An
+     async child wakes this session when it exits; do not poll. A
+     single-agent run dies at 30 minutes unless its deadline outlives the
+     wait (4h is 14400000ms; 14520000 leaves the wait room to finish):
+
+     ```typescript
+     subagent({
+       agent: "delegate",
+       cwd: "<repo>",
+       task: "Run `diffview comments wait` and return its full stdout unchanged, including the final Next line. Do not edit files.",
+       options: { timeoutMs: 14520000 },
+     })
+     ```
+6. Work through the comments (the loop below), then park the next wait the
+   same way: `diffview comments wait --after <n>`, with the `--after` it
+   printed last.
 
 ## The loop
 
@@ -121,8 +141,10 @@ description under "..."` or `the whole stack`.
 
 ## Where a thread sits
 
-- `src/app.js lines 40-42`: on those lines of the diff as it reads now.
-  `(old side)` means the lines the branch removed.
+- `src/app.js lines 40-42`: on those lines as the file reads now, changed
+  or unmodified. `(old side)` means the lines the branch removed. Unmodified
+  lines are the ones the viewer expands around a hunk; `show` prints them
+  from the file.
 - `from v3, lines unchanged`: made on an earlier version of the diff, and
   its lines still read the same, so it applies as written.
 - `outdated: made on v3, its lines changed since`: the lines it was on
@@ -138,8 +160,10 @@ description under "..."` or `the whole stack`.
 ## Also
 
 - Your messages are signed with the start of your session id ("agent
-  940d8cee"), so the human can tell agents apart; set
-  `DIFFVIEW_AUTHOR=<name>` for a friendlier name.
+  940d8cee"), so the human can tell sessions apart. Pi's bash sets
+  `PI_SESSION_ID` and Cursor sets `CURSOR_CONVERSATION_ID`; either is used,
+  and Pi's wins when both are set. Set `DIFFVIEW_AUTHOR=<name>` for a
+  friendlier name, or `DIFFVIEW_SESSION` to choose the id.
 - Every verb takes `--json` for structured output.
 - After a large change, leave notes on your own diff for the human to read
   in review: `diffview comments add --file <path> --line <n>[-<m>] -m "..."`,

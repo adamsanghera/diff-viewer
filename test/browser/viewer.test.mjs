@@ -146,6 +146,39 @@ test("with ?perf, a load reports its requests' server and git time, and its rend
   assert.ok(load.totalMs > 0);
 });
 
+test("a change inside a comment opened above the hunk is highlighted as a comment", options, async () => {
+  const commented = (value) => {
+    const lines = ["/*"];
+    for (let i = 0; i < 40; i++) lines.push(i === 20 ? `const changed = ${value};` : `const keep${i} = ${i};`);
+    lines.push("*/", "const real = 1;");
+    return lines.join("\n") + "\n";
+  };
+  const repo = makeRepo();
+  repo.git("checkout", "-q", "-b", "feat/a");
+  repo.commit("a", { "src/app.js": commented(1) });
+  repo.git("checkout", "-q", "-b", "feat/b");
+  repo.commit("b", { "src/app.js": commented(2) });
+  await ensureVendorBundle();
+  const started = await startServer({ dir: repo.dir, port: 4950 });
+  servers.push(started);
+  const page = await (await chrome()).open(`${started.url}view`);
+  await page.waitFor(() => document.querySelector(".file-diff > *")?.shadowRoot?.querySelector("[data-line]"), { what: "a rendered diff" });
+  const firstLine = await page.eval(() => Number(document.querySelector(".file-diff > *").shadowRoot.querySelector("code[data-additions] [data-column-number]")?.dataset.columnNumber));
+  assert.ok(firstLine > 1, `the comment opener is outside the hunk, which starts at line ${firstLine}`);
+  const color = await page.waitFor(
+    () => {
+      const root = document.querySelector(".file-diff > *").shadowRoot;
+      const line = [...root.querySelectorAll("code[data-additions] [data-line]")].find((el) => el.textContent.includes("const changed"));
+      // Pierre sets the token color as a custom property on the span, not a `color` declaration.
+      const span = [...(line?.querySelectorAll("span") ?? [])].find((el) => el.textContent.includes("const") && el.getAttribute("style"));
+      return span ? getComputedStyle(span).color : null;
+    },
+    { what: "syntax color on the changed line", timeout: 8000 },
+  );
+  assert.equal(color, "rgb(115, 115, 115)");
+  assert.deepEqual(page.errors, []);
+});
+
 test("a commit shows up without a reload, and an uncommitted edit never does", options, async () => {
   const { repo, page } = await openViewer();
   await page.waitFor(() => document.querySelector("#live").dataset.state === "on", { what: "live reload to connect" });

@@ -91,6 +91,34 @@ test("threads are located against the version a tab rendered", async () => {
   assert.equal(store.threadsAt(REPO, ENTRY).threads[0].state, "outdated");
 });
 
+test("a comment on unmodified lines follows the file's text into a later version", async () => {
+  const repo = makeRepo();
+  const baseText = lines(...Array.from({ length: 40 }, (_, i) => `line ${i + 1}`));
+  const headText = baseText.replace("line 38\n", "thirty-eight\n");
+  const base = repo.commit("base", { "app.js": baseText });
+  const head = repo.commit("head", { "app.js": headText });
+  const snap = { base, head, workingTree: false, patch: repo.git(...DIFF_ARGS, base, head) + "\n" };
+  const store = await freshStore();
+  const common = repo.commonDir();
+  const id = store.createThread({
+    repo: common,
+    entry: ENTRY,
+    snapshot: snap,
+    kind: "lines",
+    path: "app.js",
+    side: "new",
+    startLine: 20,
+    endLine: 20,
+    body: "Leave this.",
+    author: HUMAN,
+  });
+  assert.deepEqual(store.thread(id).thread.excerpt.filter((l) => l.marked).map((l) => l.text), ["line 20"]);
+  const head2 = repo.commit("shift", { "app.js": `intro\n${headText}` });
+  store.observe(common, ENTRY, { base, head: head2, workingTree: false, patch: repo.git(...DIFF_ARGS, base, head2) + "\n" });
+  const carried = store.thread(id).thread;
+  assert.deepEqual([carried.state, carried.startLine, carried.excerpt.find((l) => l.marked).text], ["carried", 21, "line 20"]);
+});
+
 test("a comment on lines the diff does not show is refused", async () => {
   const store = await freshStore();
   assert.throws(() => comment(store, V1, { startLine: 1, endLine: 9 }), /not shown together/);

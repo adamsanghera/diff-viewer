@@ -101,8 +101,9 @@ async function loadDiff({ force = false } = {}) {
   const scroll = scrollY;
   state.diff = diff;
   if (state.version) state.version = diff.version;
+  // The version chip is painted after the files, so it never names a diff that is not on screen yet.
+  await renderFiles();
   renderBranchHead();
-  renderFiles();
   renderTree();
   if (!force) scrollTo(0, scroll);
   return true;

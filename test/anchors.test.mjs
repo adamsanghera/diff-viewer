@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { anchorFor, anchoredTexts, AnchorError, locate, nowReads } from "../lib/anchors.mjs";
+import { anchorFor, anchoredTexts, AnchorError, excerpt, locate, nowReads } from "../lib/anchors.mjs";
 import { DIFF_ARGS, parseDiff } from "../lib/diff.mjs";
 import { makeRepo } from "./helpers/repo.mjs";
 
@@ -91,6 +91,27 @@ test("file and branch comments attach while their file, or always", () => {
   assert.equal(locate(file, v1).state, "attached");
   assert.equal(locate(file, diffOf({ "b.js": "1\n" }, { "b.js": "2\n" })).state, "outdated");
   assert.equal(locate(branch, []).state, "attached");
+});
+
+test("a comment on unmodified lines follows the file's text", () => {
+  const head = lines(...numbered(40)).replace("line 38\n", "thirty-eight\n");
+  const files = diffOf({ "a.js": lines(...numbered(40)) }, { "a.js": head });
+  const spec = { kind: "lines", path: "a.js", side: "new", startLine: 20, endLine: 20 };
+  assert.throws(() => anchorFor(files, spec), /not shown together/);
+  const anchor = anchorFor(files, spec, head);
+  assert.equal(anchor.scope, "file");
+  assert.deepEqual(locate(anchor, files, head), { state: "attached", path: "a.js", startLine: 20, endLine: 20 });
+  assert.ok(excerpt(files, { path: "a.js", side: "new", startLine: 20, endLine: 20 }, head).some((l) => l.marked && l.text === "line 20"));
+
+  const shifted = `intro\n${head}`;
+  const later = diffOf({ "a.js": lines(...numbered(40)) }, { "a.js": shifted });
+  assert.deepEqual(locate(anchor, later, shifted), { state: "attached", path: "a.js", startLine: 21, endLine: 21 });
+
+  const edited = head.replace("line 20\n", "line 20, edited\n");
+  const editedDiff = diffOf({ "a.js": lines(...numbered(40)) }, { "a.js": edited });
+  assert.equal(locate(anchor, editedDiff, edited).state, "outdated");
+  assert.equal(nowReads(anchor, anchoredTexts(anchor, files, head), editedDiff, edited).text, "line 20, edited");
+  assert.throws(() => anchorFor(files, { ...spec, startLine: 1, endLine: 80 }, head), /not in that file/);
 });
 
 test("anchors refuse lines the diff does not show together", () => {

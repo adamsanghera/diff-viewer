@@ -72,25 +72,41 @@ async function commentOnLine11(page, text = "Why double it here?") {
   await page.waitFor(() => document.querySelectorAll("#rail .thread").length === 1, { what: "a card in the rail" });
 }
 
-test("unmodified lines load when expanded, and take no comment", options, async () => {
-  const { page } = await openViewer();
+test("a comment can sit on an unmodified line, and the line is expanded again on return", options, async () => {
+  const { page, started } = await openViewer();
   const fetches = () => page.eval(() => performance.getEntriesByType("resource").filter((r) => r.name.includes("/api/file")).length);
   const newSide = () => page.eval(() => [...document.querySelector(".file-diff > *").shadowRoot.querySelectorAll("code[data-additions] [data-column-number]")].map((c) => Number(c.dataset.columnNumber)));
-  assert.equal(await fetches(), 0, "nothing loads until someone expands");
+  assert.equal(await fetches(), 2, "both sides load so highlighting sees the whole file");
   assert.equal((await newSide())[0], 8, "b's hunk starts three lines above its change at line 11");
 
   await page.eval(() => document.querySelector(".file-diff > *").shadowRoot.querySelector("[data-separator-first] [data-expand-button]").click());
   await page.waitFor(() => document.querySelector(".file-diff > *").shadowRoot.querySelector('code[data-additions] [data-column-number="1"]'), { what: "line 1, expanded" });
-  assert.equal(await fetches(), 2, "the file's old and new sides, once");
+  assert.equal(await fetches(), 2, "expanding uses the sides already loaded");
 
   await clickLineNumber(page, 2);
-  await page.waitFor(() => !document.querySelector("#toast").hidden, { what: "a toast" });
-  assert.match(await page.eval(() => document.querySelector("#toast").textContent), /not on expanded ones/);
-  assert.equal(await page.eval(() => document.querySelector("#composer").hidden), true, "no composer opens");
+  await page.waitFor(() => !document.querySelector("#composer").hidden, { what: "the composer" });
+  assert.match(await page.eval(() => document.querySelector("#composer-text").getAttribute("aria-label")), /app\.js:2/);
+  await typeAndPress(page, "Why is this still here?");
+  await page.waitFor(() => document.querySelector("#rail .thread"), { what: "a card in the rail" });
+  assert.deepEqual(await page.eval(markedRows), ["2:open"]);
+  const offset = await page.eval(() => {
+    const row = document.querySelector(".file-diff > *").shadowRoot.querySelector('code[data-additions] [data-line="2"]');
+    return Math.abs(document.querySelector("#rail .thread").getBoundingClientRect().top - row.getBoundingClientRect().top);
+  });
+  assert.ok(offset < 4, `the card sits ${offset}px from its line`);
+  assert.equal(await fetches(), 2, "the file was already loaded");
 
-  await commentOnLine11(page);
-  assert.equal((await newSide())[0], 1, "a new comment re-renders the file and keeps it expanded");
-  assert.equal(await fetches(), 2);
+  await page.goto(`${started.url}view`);
+  await page.waitFor(
+    () => {
+      const shadow = document.querySelector(".file-diff > *")?.shadowRoot;
+      const row = shadow?.querySelector('code[data-additions] [data-line="2"]');
+      const card = document.querySelector("#rail .thread");
+      return row && card && Math.abs(card.getBoundingClientRect().top - row.getBoundingClientRect().top) < 8;
+    },
+    { what: "line 2 expanded again, with its card", timeout: 8000 },
+  );
+  assert.match(await page.eval(() => document.querySelector("#rail .thread").innerText), /Why is this still here\?/);
   assert.deepEqual(page.errors, []);
 });
 
@@ -153,6 +169,30 @@ test("the lines under the pointer, and the lines being selected, are tinted unti
   assert.equal((await tinted("data-selected-line")).length, 3, "the selection stays while the composer is open");
   await page.eval(() => document.querySelector("#composer-cancel").click());
   assert.deepEqual(await tinted("data-selected-line"), []);
+});
+
+test("a suggested card's buttons stay inside the card", options, async () => {
+  const { page, home } = await openViewer();
+  await commentOnLine11(page);
+  const [{ id }] = await page.eval(railCards);
+  const agentStore = await openStore(home);
+  agentStore.setStatus(id, "suggested", { name: "agent", kind: "agent" }, "Left the check in place.");
+  agentStore.close();
+  await page.waitFor(() => document.querySelector("#rail .thread")?.innerText.includes("Agent suggests resolving"), { what: "the suggestion" });
+  const placed = await page.eval(() => {
+    const card = document.querySelector("#rail .thread.expanded");
+    const cardBox = card.getBoundingClientRect();
+    return [...card.querySelectorAll(".thread-actions .btn")].map((button) => {
+      const box = button.getBoundingClientRect();
+      return { label: button.textContent.trim(), left: box.left, right: box.right, bottom: box.bottom, cardLeft: cardBox.left, cardRight: cardBox.right, cardBottom: cardBox.bottom };
+    });
+  });
+  assert.ok(placed.some((b) => b.label === "Reopen"), "a suggestion offers Reopen, the row that overflows");
+  for (const button of placed) {
+    assert.ok(button.left >= button.cardLeft - 1, `${button.label} starts outside the card`);
+    assert.ok(button.right <= button.cardRight + 1, `${button.label} ends outside the card`);
+    assert.ok(button.bottom <= button.cardBottom + 1, `${button.label} extends below the card`);
+  }
 });
 
 test("an agent's reply shows up live, and resolving clears the line", options, async () => {

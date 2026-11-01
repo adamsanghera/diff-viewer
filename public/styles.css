@@ -505,9 +505,11 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 }
 .composer textarea { margin-top: 0; }
 .thread textarea:focus, .composer textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
-.thread-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+.thread-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+/* The reply cluster sits on the right. In the 300px rail it is wider than the card, and a single flex line packed to the end overflows out the left corner. */
+.thread-actions-end { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; margin-left: auto; max-width: 100%; min-width: 0; }
 #composer-actions { display: inline-flex; }
-.thread-actions .spacer { flex: 1; }
+.thread-actions .spacer { flex: 1; min-width: 0; }
 .link { color: var(--link); padding: 0; }
 .link:hover { text-decoration: underline; }
 .btn { height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: var(--radius-sm); background: var(--bg-control); font-size: var(--text-md); font-weight: var(--weight-medium); color: var(--text); }

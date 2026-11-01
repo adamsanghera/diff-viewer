@@ -151,12 +151,21 @@ test("a mistyped verb gets a guess, not the whole help", () => {
 test("an agent without DIFFVIEW_AUTHOR is named for its session", async () => {
   const ctx = setup();
   const id = await humanComment(ctx, { entry: "feat/b", path: "src/app.js", startLine: 3, body: "Who?" });
-  const env = { ...process.env, DIFFVIEW_HOME: ctx.home, CURSOR_CONVERSATION_ID: "940d8cee-dac1-4aae" };
-  delete env.DIFFVIEW_AUTHOR;
-  delete env.DIFFVIEW_SESSION;
-  const res = spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", BIN, "comments", "reply", String(id), "-m", "Me."], { cwd: ctx.repo.dir, env, encoding: "utf8" });
-  assert.equal(res.status, 0, res.stderr);
-  assert.match(ctx.cli("show", String(id)).out, /agent 940d8cee · /);
+  const reply = (message, extra) => {
+    const env = { ...process.env, DIFFVIEW_HOME: ctx.home, ...extra };
+    for (const key of ["DIFFVIEW_AUTHOR", "DIFFVIEW_SESSION", "PI_SESSION_ID", "CURSOR_CONVERSATION_ID", "TERM_SESSION_ID"]) {
+      if (!(key in extra)) delete env[key];
+    }
+    const res = spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", BIN, "comments", "reply", String(id), "-m", message], { cwd: ctx.repo.dir, env, encoding: "utf8" });
+    assert.equal(res.status, 0, res.stderr);
+  };
+  reply("From Cursor.", { CURSOR_CONVERSATION_ID: "940d8cee-dac1-4aae" });
+  reply("From Pi.", { PI_SESSION_ID: "aabbccdd-eeff-0011", CURSOR_CONVERSATION_ID: "940d8cee-dac1-4aae" });
+  reply("Chosen.", { DIFFVIEW_SESSION: "picked-1-rest", PI_SESSION_ID: "aabbccdd-eeff-0011" });
+  const show = ctx.cli("show", String(id)).out;
+  assert.match(show, /agent 940d8cee · .+\n {4}From Cursor\./);
+  assert.match(show, /agent aabbccdd · .+\n {4}From Pi\./);
+  assert.match(show, /agent picked-1 · .+\n {4}Chosen\./);
 });
 
 test("add starts a thread on lines, a file, or the whole branch", () => {
@@ -166,7 +175,7 @@ test("add starts a thread on lines, a file, or the whole branch", () => {
   assert.match(cli("add", "--whole-branch", "--branch", "feat/a", "-m", "Merge first?").out, /the whole branch of feat\/a/);
   const refused = cli("add", "--file", "src/app.js", "--line", "1-9", "-m", "x");
   assert.equal(refused.status, 1);
-  assert.match(refused.err, /not shown together/);
+  assert.match(refused.err, /not in that file/);
 });
 
 test("a commit that edits the commented line makes the thread outdated, with what it now reads", async () => {

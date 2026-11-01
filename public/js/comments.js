@@ -107,7 +107,7 @@ export function renderAnnotation(annotation) {
 
 /* Rows inside Pierre's shadow roots */
 
-/** The row showing `line` on `side` of a rendered file, or null when it is not on screen (collapsed, or outside the hunks). */
+/** The row showing `line` on `side` of a rendered file, or null when it is not on screen (collapsed, or not expanded). */
 function rowFor(item, side, line) {
   const shadow = item.section.firstElementChild?.shadowRoot;
   if (!shadow) return null;
@@ -117,7 +117,7 @@ function rowFor(item, side, line) {
       const type = row.dataset.lineType;
       if (side === "new" && type !== "change-deletion" && Number(row.dataset.line) === line) return row;
       if (side === "old" && type === "change-deletion" && Number(row.dataset.line) === line) return row;
-      if (side === "old" && type === "context" && Number(row.dataset.altLine) === line) return row;
+      if (side === "old" && (type === "context" || type === "context-expanded") && Number(row.dataset.altLine) === line) return row;
     }
     return null;
   }
@@ -195,7 +195,10 @@ export function renderComments({ annotationsChanged = false } = {}) {
   renderHeader();
   root.classList.toggle("rail-docked", railShown());
   if (annotationsChanged) commentHooks.rerenderFiles();
-  for (const item of state.views) markRows(item);
+  for (const item of state.views) {
+    markRows(item);
+    revealCommentedLines(item);
+  }
   paintDescription(placedThreads().filter((t) => t.kind === "description"), state.comments.active, markOf);
   renderBranchThreads();
   renderRail();
@@ -369,16 +372,74 @@ export function markSelectionSide(item, range) {
   else delete host.dataset.dvSelectSide;
 }
 
-/**
- * Whether lines start to end on `side` all lie in one of the patch's hunks.
- * Only those lines can hold a comment (lib/anchors.mjs); lines expanded
- * around the hunks cannot, and two hunks always have expanded lines between.
- */
+/** Whether lines start to end on `side` all lie in one of the patch's hunks. */
 function inOneHunk(fileDiff, side, start, end) {
   return fileDiff.hunks.some((h) => {
     const [first, count] = side === "new" ? [h.additionStart, h.additionCount] : [h.deletionStart, h.deletionCount];
     return start >= first && end < first + count;
   });
+}
+
+/**
+ * The new-file line number of `line` on `side`. Unmodified lines outside the
+ * hunks keep their order on both sides, so an old-side line maps across by
+ * how many lines the hunks above it added and removed.
+ */
+function additionLine(fileDiff, side, line) {
+  if (side === "new") return line;
+  let oldCursor = 1;
+  let newCursor = 1;
+  for (const h of fileDiff.hunks) {
+    if (line < h.deletionStart) return newCursor + (line - oldCursor);
+    oldCursor = h.deletionStart + h.deletionCount;
+    newCursor = h.additionStart + h.additionCount;
+  }
+  return newCursor + (line - oldCursor);
+}
+
+/**
+ * Whether `line` on a thread's side is in the rendered file. Pierre's own
+ * check reports every line renderable until the file has loaded, which is
+ * exactly when an unmodified line is still collapsed.
+ */
+function lineShown(item, thread, line) {
+  return Boolean(rowFor(item, thread.side, line));
+}
+
+/**
+ * Expands a file until each comment on lines outside its hunks is on screen.
+ * Pierre drops that expansion when the file is rendered again, so this runs
+ * whenever those rows are missing.
+ */
+export function revealCommentedLines(item) {
+  if (item.options?.collapsed || item.revealing || item.revealGaveUp || !item.view?.revealLine) return;
+  const outside = placedThreads().filter((t) => t.kind === "lines" && t.path === item.file.path && !inOneHunk(item.fileDiff, t.side, t.startLine, t.endLine));
+  const missing = outside.filter((t) => !lineShown(item, t, t.startLine) || !lineShown(item, t, t.endLine));
+  if (!missing.length) return;
+  item.revealing = true;
+  reveal(item, missing)
+    .catch(() => {})
+    .finally(() => {
+      item.revealing = false;
+      // No adopted diff yet: this attempt could not expand, and the next render will.
+      if (item.view.getRenderedDiff?.() == null) return;
+      if (missing.some((t) => !lineShown(item, t, t.startLine) || !lineShown(item, t, t.endLine))) item.revealGaveUp = true;
+    });
+}
+
+async function reveal(item, threads) {
+  await item.view.prepareForEditing();
+  // Pierre refuses to expand until a render has adopted the diff. A whole-file
+  // highlight can still be starting then; the next render tries again.
+  if (item.view.getRenderedDiff?.() == null) return;
+  for (const t of threads) {
+    for (const line of new Set([t.startLine, t.endLine])) {
+      const addition = additionLine(item.fileDiff, t.side, line);
+      for (let i = 0; i < 20 && !lineShown(item, t, line); i++) {
+        if (!item.view.revealLine(addition)) break;
+      }
+    }
+  }
 }
 
 /** Pierre calls this when a line selection ends: {start, side, end, endSide}, sides "additions" or "deletions". */
@@ -391,11 +452,6 @@ export function selectedLines(item, range) {
   }
   const side = SIDE_OF[range.side] ?? "new";
   const [startLine, endLine] = range.start <= range.end ? [range.start, range.end] : [range.end, range.start];
-  if (!inOneHunk(item.fileDiff, side, startLine, endLine)) {
-    toast("Comments go on the diff's own lines, not on expanded ones");
-    item.view.setSelectedLines(null);
-    return;
-  }
   const row = rowFor(item, side, endLine) ?? item.section;
   openComposer({ kind: "lines", path: item.file.path, side, startLine, endLine, item }, row);
 }

@@ -41,10 +41,11 @@ When a branch is recorded by several stacking tools, the one that touched it las
 
 ## Comments for agents
 
-An agent hands you a stack with one command, run in the background from the repo:
+An agent hands you a stack from the repo. It prints the link first, then parks the wait where its host can wake it: a background shell in Cursor, a [pi-subagents](https://github.com/nicobailon/pi-subagents) child in Pi.
 
 ```bash
-diffview review   # lists missing descriptions, starts or reuses a viewer, prints the stack's link, waits for comments
+diffview review --no-wait   # lists missing descriptions, starts or reuses a viewer, prints the stack's link
+diffview comments wait      # comments when you leave them; park this so the agent is woken
 ```
 
 Click a line number to comment on that line (shift-click or drag for a range), or use a file header's **Comment** for the whole file. Threads float in the margin beside their lines, tinted by whose turn it is, and the agent answers from a terminal in the repo:
@@ -80,9 +81,9 @@ Tests and generated files start hidden and stay out of every count until you tur
 
 Checking a file's **Viewed** box collapses it, once; the chevron before its name expands or collapses it whenever you like, and it stays as you leave it. When its diff changes, the mark clears and it shows **Changed since viewed**. Marking a whole branch viewed (`v`) is separate: it marks no file and collapses nothing.
 
-The bars between a file's hunks expand the unmodified lines around them. The file's two versions load the first time you expand one, not before. Comments go only on the diff's own lines, as on GitHub: those are what the branch changes, and what an agent reading the thread sees.
+The bars between a file's hunks expand the unmodified lines around them. A changed file's two versions load with the diff, so highlighting reads each side as a whole file, and a bar only uncovers lines already loaded. A file that starts collapsed loads when you open it. A comment can sit on those lines as well as on the diff's own: it follows the line's text, and the line is expanded again when you come back to the page. An agent reading the thread sees the lines either way.
 
-Comments live in `~/.diffview/diffview.sqlite3` (set `DIFFVIEW_HOME` to move it), keyed by each repo's git common dir and branch name, so every worktree of a repo shares them. Deleting is permanent and only in the page. [`skills/diffview-comments/SKILL.md`](skills/diffview-comments/SKILL.md) teaches an agent this loop. Copy it into your agent's skills folder.
+Comments live in `~/.diffview/diffview.sqlite3` (set `DIFFVIEW_HOME` to move it), keyed by each repo's git common dir and branch name, so every worktree of a repo shares them. Deleting is permanent and only in the page. [`skills/diffview-comments/SKILL.md`](skills/diffview-comments/SKILL.md) teaches an agent this loop. Copy it into the skills folder that agent loads. Pi reads `~/.pi/agent/skills` and a project's `.pi/skills`.
 
 ## Safety
 

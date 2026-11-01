@@ -1,11 +1,12 @@
 /** The branch's files, each rendered by Pierre's FileDiff, and the layout they use: Auto, Split, or Unified. */
-import { FileDiff, parsePatchFiles } from "/vendor/pierre.js";
+import { DEFAULT_TOKENIZE_MAX_LENGTH, FileDiff, hydratePartialDiff, parsePatchFiles } from "/vendor/pierre.js";
 import {
   clickedLine,
   headerControls,
   lineAnnotationsFor,
   markRows,
   renderAnnotation,
+  revealCommentedLines,
   ROW_MARK_CSS,
   scheduleLayout,
   markSelectionSide,
@@ -27,7 +28,7 @@ const AUTO_SPLIT_MIN_WIDTH = 1000;
  * page's tokens (custom properties inherit into shadow roots).
  */
 const GRAPHITE_DIFF_CSS = `
-pre, [data-code], [data-content], [data-gutter-buffer], [data-diffs-header], [data-line-type="context"], [data-column-number][data-line-type="context"], [data-gutter] { background-color: var(--bg) !important; }
+pre, [data-code], [data-content], [data-gutter-buffer], [data-diffs-header], [data-line-type="context"], [data-line-type="context-expanded"], [data-column-number][data-line-type="context"], [data-column-number][data-line-type="context-expanded"], [data-gutter] { background-color: var(--bg) !important; }
 [data-line-type="change-addition"] { background-color: var(--diff-added) !important; }
 [data-line-type="change-deletion"] { background-color: var(--diff-removed) !important; }
 [data-line-type="change-addition"] [data-diff-span] { background-color: var(--diff-added-word) !important; }
@@ -78,19 +79,84 @@ function openInCursor(file) {
   return link;
 }
 
+// A commit's blob never changes, so a path at a revision is fetched once per page. `blobText` holds it once known; `blobMiss` remembers a failed fetch so a render does not ask again.
+const blobs = new Map();
+const blobText = new Map();
+const blobMiss = new Set();
+const blobKey = (rev, name) => `${rev}\0${name}`;
+
+function blobAt(rev, name) {
+  const key = blobKey(rev, name);
+  if (blobText.has(key)) return Promise.resolve(blobText.get(key));
+  let pending = blobs.get(key);
+  if (!pending) {
+    pending = getJson(`/api/file?${new URLSearchParams({ rev, path: name })}`).then((body) => {
+      blobText.set(key, body.contents);
+      return body.contents;
+    });
+    pending.catch(() => {
+      blobs.delete(key);
+      blobMiss.add(key);
+    });
+    blobs.set(key, pending);
+  }
+  return pending;
+}
+
+/** The blob if this page already has it: `{file}` or `{missing}`, or null when it has not been asked for. */
+function knownBlob(rev, name) {
+  const key = blobKey(rev, name);
+  if (blobText.has(key)) return { file: { name, contents: blobText.get(key), cacheKey: `${rev}:${name}` } };
+  if (blobMiss.has(key)) return { missing: true };
+  return null;
+}
+
 /**
- * Both sides of a changed file, for expanding its unmodified lines: the old
- * side at the branch's base, the new at its head. Pierre calls it the first
- * time someone expands one of the file's separators, and only then.
+ * Both sides of a changed file: the old side at the branch's base, the new at
+ * its head. Pierre tokenizes a side as one document only once it has every
+ * line, so a modified file loads here before its first paint. Pierre calls
+ * this again when a collapsed file is opened or a separator expands, and the
+ * cache above makes that the same blobs.
  */
 async function loadBothSides(fileDiff, { base, head }) {
-  const at = async (rev, name) => {
-    const { contents } = await getJson(`/api/file?${new URLSearchParams({ rev, path: name })}`);
-    return { name, contents, cacheKey: `${rev}:${name}` };
-  };
+  const at = async (rev, name) => ({ name, contents: await blobAt(rev, name), cacheKey: `${rev}:${name}` });
   if (fileDiff.type === "rename-pure") return { oldFile: null, newFile: await at(head, fileDiff.name) };
   const [oldFile, newFile] = await Promise.all([at(base, fileDiff.prevName ?? fileDiff.name), at(head, fileDiff.name)]);
   return { oldFile, newFile };
+}
+
+/** A patch of a modification or a rename that changed: the two sides to highlight are not in the hunks. Added and deleted files already are. */
+function needsWholeFile(fileDiff) {
+  return fileDiff.isPartial && (fileDiff.type === "change" || fileDiff.type === "rename-changed");
+}
+
+/** How many lines Pierre's splitter would make of `contents`. Past its tokenize limit a whole-file highlight is plain text, which is worse than coloring the hunks. */
+function lineCount(contents) {
+  if (contents === "") return 0;
+  let count = 1;
+  for (let i = 0; i < contents.length; i++) if (contents.charCodeAt(i) === 10) count++;
+  if (contents.charCodeAt(contents.length - 1) === 10) count--;
+  return count;
+}
+
+function withinHighlightLimit(files) {
+  const oldLines = files.oldFile ? lineCount(files.oldFile.contents) : 0;
+  const newLines = files.newFile ? lineCount(files.newFile.contents) : 0;
+  return Math.max(oldLines, newLines) <= DEFAULT_TOKENIZE_MAX_LENGTH;
+}
+
+/**
+ * Gives `item` the whole file when highlighting can use it. With no view yet,
+ * the parsed diff is hydrated in place so the first paint is already one
+ * document per side. A view that was painted from the patch hydrates through
+ * Pierre, which drops the per-hunk highlight it cached.
+ */
+async function withWholeFile(item, entry) {
+  if (!needsWholeFile(item.fileDiff)) return;
+  const files = await loadBothSides(item.fileDiff, entry);
+  if (!item.fileDiff.isPartial || !withinHighlightLimit(files)) return;
+  if (item.view) await item.view.prepareForEditing();
+  else hydratePartialDiff("merge", item.fileDiff, files);
 }
 
 export function cleanUpViews() {
@@ -105,14 +171,62 @@ function parsedByPath(patch) {
   return byPath;
 }
 
-/** Renders the branch's files, measured as "diffview:render-files" for ?perf and DevTools' Performance panel. */
+/**
+ * Renders the branch's files, measured as "diffview:render-files" for ?perf and
+ * DevTools' Performance panel. The measure is the paint, after the whole-file
+ * blobs are in. Callers that show something derived from this paint, such as
+ * the version chip, wait for the returned promise: the chip and the lines
+ * then appear in the same turn.
+ */
 export function renderFiles() {
+  const generation = ++renderGeneration;
+  // Already-loaded files paint in this turn. A click that redraws them, and a
+  // test that reads the page as soon as the click returns, then see the new diff.
+  if (visibleFilesReady()) return paintNow(generation);
+  return paintFiles(generation);
+}
+
+/** Both sides of every visible modified file are already known, so nothing has to be fetched. */
+function visibleFilesReady() {
+  const parsed = parsedByPath(state.diff.patch);
+  const { entry } = state.diff;
+  for (const file of state.diff.files) {
+    if (!rendered(file) || collapsedNow(file)) continue;
+    const fileDiff = parsed.get(file.path);
+    if (!fileDiff || !needsWholeFile(fileDiff)) continue;
+    if (!knownBlob(entry.base, fileDiff.prevName ?? fileDiff.name) || !knownBlob(entry.head, fileDiff.name)) return false;
+  }
+  return true;
+}
+
+function paintNow(generation) {
   performance.mark("diffview:render-files-start");
   try {
-    renderFileViews();
+    renderFileViews(generation);
   } finally {
-    performance.measure("diffview:render-files", "diffview:render-files-start");
+    if (generation === renderGeneration) performance.measure("diffview:render-files", "diffview:render-files-start");
   }
+  return Promise.resolve();
+}
+
+/** Fetches both sides of each visible modified file. Collapsed files wait until they are opened. */
+async function warmVisibleFiles() {
+  const parsed = parsedByPath(state.diff.patch);
+  const { entry } = state.diff;
+  const jobs = [];
+  for (const file of state.diff.files) {
+    if (!rendered(file) || collapsedNow(file)) continue;
+    const fileDiff = parsed.get(file.path);
+    if (!fileDiff || !needsWholeFile(fileDiff)) continue;
+    jobs.push(blobAt(entry.base, fileDiff.prevName ?? fileDiff.name), blobAt(entry.head, fileDiff.name));
+  }
+  await Promise.allSettled(jobs);
+}
+
+async function paintFiles(generation) {
+  await warmVisibleFiles();
+  if (generation !== renderGeneration) return;
+  paintNow(generation);
 }
 
 /* Collapsing files */
@@ -126,12 +240,30 @@ function collapsedNow(file) {
   return collapsedChoice.get(choiceKey(file)) ?? (viewedState(file) === "viewed" || startsCollapsed(file));
 }
 
-/** Collapses or expands a rendered file, and remembers it. */
+/** Collapses or expands a rendered file, and remembers it. Opening one still painted from its hunks waits until the whole file is loaded, so the lines that appear are highlighted from it. */
 export function setCollapsed(item, collapsed) {
   collapsedChoice.set(choiceKey(item.file), collapsed);
-  item.options = { ...item.options, collapsed };
+  if (!collapsed && needsWholeFile(item.fileDiff)) {
+    void openHighlighted(item, renderGeneration);
+    return;
+  }
+  applyCollapsed(item);
+}
+
+function applyCollapsed(item) {
+  item.options = { ...item.options, collapsed: collapsedNow(item.file) };
   item.view.setOptions(item.options);
   item.view.rerender();
+}
+
+async function openHighlighted(item, generation) {
+  try {
+    await withWholeFile(item, state.diff.entry);
+  } catch (err) {
+    console.error(err);
+  }
+  if (generation !== renderGeneration || !item.view || collapsedNow(item.file)) return;
+  applyCollapsed(item);
 }
 
 const CHEVRON = '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg>';
@@ -149,7 +281,41 @@ function collapseToggle(item) {
   return button;
 }
 
-function renderFileViews() {
+// Bumped on every render so a file fetch from the previous one cannot paint into the new page.
+let renderGeneration = 0;
+
+function mountFile(item) {
+  item.section.replaceChildren();
+  item.options = { ...item.options, diffStyle: state.diffStyle, themeType: root.dataset.theme, collapsed: collapsedNow(item.file) };
+  item.view = new FileDiff(item.options);
+  item.view.render({ fileDiff: item.fileDiff, containerWrapper: item.section, lineAnnotations: lineAnnotationsFor(item.file) });
+  state.views.push(item);
+}
+
+/** Loads the whole file, then paints. A hidden child holds the section's place so a later file cannot become the first one while this is in flight. */
+async function mountWhenHighlighted(item, entry, generation) {
+  const place = document.createElement("div");
+  place.hidden = true;
+  item.section.replaceChildren(place);
+  try {
+    await withWholeFile(item, entry);
+  } catch (err) {
+    console.error(err);
+  }
+  if (generation !== renderGeneration || item.view) return;
+  mountFile(item);
+}
+
+/** Both sides when this page already holds them, `{missing}` when a fetch failed, or null when they are not loaded yet. */
+function readySides(fileDiff, entry) {
+  const oldSide = knownBlob(entry.base, fileDiff.prevName ?? fileDiff.name);
+  const newSide = knownBlob(entry.head, fileDiff.name);
+  if (!oldSide || !newSide) return null;
+  if (oldSide.missing || newSide.missing) return { missing: true };
+  return { oldFile: oldSide.file, newFile: newSide.file };
+}
+
+function renderFileViews(generation) {
   cleanUpViews();
   const container = $("#diffs");
   container.replaceChildren();
@@ -187,15 +353,22 @@ function renderFileViews() {
       onLineClick: (props) => clickedLine(item, props),
       onPostRender: () => {
         markRows(item);
+        revealCommentedLines(item);
         scheduleLayout();
       },
       renderAnnotation,
       renderHeaderPrefix: () => collapseToggle(item),
       renderHeaderMetadata: () => headerControls(item, openInCursor(file)),
     };
-    item.view = new FileDiff(item.options);
-    item.view.render({ fileDiff, containerWrapper: section, lineAnnotations: lineAnnotationsFor(file) });
-    state.views.push(item);
+    if (!item.options.collapsed && needsWholeFile(fileDiff)) {
+      const sides = readySides(fileDiff, entry);
+      if (sides?.oldFile && withinHighlightLimit(sides)) hydratePartialDiff("merge", fileDiff, sides);
+      else if (!sides) {
+        void mountWhenHighlighted(item, entry, generation);
+        return;
+      }
+    }
+    mountFile(item);
   });
   if (!state.diff.files.length) container.innerHTML = '<p class="empty">This branch changes nothing.</p>';
   const summary = hiddenSummary(state.diff.files);
