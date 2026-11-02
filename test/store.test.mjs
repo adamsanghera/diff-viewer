@@ -7,6 +7,7 @@ import path from "node:path";
 import { DIFF_ARGS } from "../lib/diff.mjs";
 import { normalizeDescription } from "../lib/descriptions.mjs";
 import { openStore, STACK_SNAPSHOT } from "../lib/store.mjs";
+import { openStore as openLegacyStore } from "./helpers/legacy-store.mjs";
 import { makeRepo } from "./helpers/repo.mjs";
 
 const HUMAN = { name: "adam", kind: "human" };
@@ -237,11 +238,14 @@ test("a comment on a description keeps the text it was made on, and follows its 
   t = store.thread(id).thread;
   assert.deepEqual([t.state, t.blockText, t.nowReads?.text], ["outdated", "- Rebuild threads.", "- Rebuild the threads table."]);
   assert.equal(store.thread(id).descriptionPath, file);
+  // A version read while the description was tracked is kept, as a branch's diff versions are, so a page that showed it can still comment on it.
   const withIntro = normalizeDescription({ title: null, body: `Intro paragraph.\n\n${DESC_V1}` }).sha256;
+  store.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: withIntro, quote: "Intro paragraph", body: "x", author: HUMAN });
+  const neverRead = normalizeDescription({ title: null, body: "Text the file never held.\n" }).sha256;
   assert.throws(
-    () => store.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: withIntro, quote: "Add a table", body: "x", author: HUMAN }),
+    () => store.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: neverRead, quote: "Add a table", body: "x", author: HUMAN }),
     /changed since you opened it/,
-    "a page showing text the file no longer holds, and no comment kept, is stale",
+    "a page showing text the store never saw and the file does not hold is stale",
   );
   store.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: sha256, quote: "Add a table", body: "x", author: HUMAN });
 });
@@ -294,54 +298,119 @@ test("a branch's viewed mark and its files' marks are independent", async () => 
   assert.deepEqual(store.viewed(REPO, ENTRY), { "app.js": "file-sha" }, "the file keeps its mark");
 });
 
-test("a version 2 store gains description threads, keeping its threads, after a backup", async () => {
-  const home = tempHome();
-  const { DatabaseSync } = await import("node:sqlite");
-  const old = new DatabaseSync(path.join(home, "diffview.sqlite3"));
-  old.exec(`CREATE TABLE reviews (id INTEGER PRIMARY KEY, repo TEXT NOT NULL, entry TEXT NOT NULL, created_at TEXT NOT NULL, UNIQUE (repo, entry));
-    CREATE TABLE versions (id INTEGER PRIMARY KEY, review_id INTEGER NOT NULL, seq INTEGER NOT NULL, base TEXT NOT NULL, head TEXT NOT NULL, working_tree INTEGER NOT NULL, sha256 TEXT NOT NULL, patch TEXT NOT NULL, observed_at TEXT NOT NULL);
-    CREATE TABLE threads (id INTEGER PRIMARY KEY, review_id INTEGER NOT NULL REFERENCES reviews(id), version_id INTEGER NOT NULL REFERENCES versions(id),
-      kind TEXT NOT NULL CHECK (kind IN ('lines', 'file', 'branch')), path TEXT, side TEXT, start_line INTEGER, end_line INTEGER, lines_sha TEXT,
-      ordinal INTEGER NOT NULL, repeats INTEGER NOT NULL, quote TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', status_by TEXT, status_at TEXT, created_at TEXT NOT NULL);
-    CREATE TABLE messages (id INTEGER PRIMARY KEY, thread_id INTEGER NOT NULL REFERENCES threads(id), author TEXT NOT NULL, author_kind TEXT NOT NULL, body TEXT NOT NULL,
-      version_id INTEGER NOT NULL, session TEXT, created_at TEXT NOT NULL, sent_at TEXT, pending INTEGER GENERATED ALWAYS AS (sent_at IS NULL) VIRTUAL);
-    INSERT INTO reviews VALUES (1, '${REPO}', '${ENTRY}', 'x');
-    INSERT INTO versions VALUES (1, 1, 1, 'b', 'h', 0, 'sha', ${JSON.stringify(V1.patch).replace(/^"|"$/g, "'").replace(/\\n/g, "\n")}, 'x');
-    INSERT INTO threads (id, review_id, version_id, kind, ordinal, repeats, quote, created_at) VALUES (1, 1, 1, 'branch', 0, 0, '', 'x');
-    INSERT INTO messages (thread_id, author, author_kind, body, version_id, created_at, sent_at) VALUES (1, 'adam', 'human', 'kept?', 1, 'x', 'x');
-    PRAGMA user_version = 2;`);
+/**
+ * Fills a store kept by diffview before peanut with one of everything:
+ * line threads outdated by later versions, a file thread,
+ * a whole-branch thread, description threads across two snapshots, a stack
+ * with a whole thread, a human's unsent batch, and viewed marks. Returns
+ * what the old store said about it, to hold the import to.
+ */
+async function legacyStore(home) {
+  const old = await openLegacyStore(home);
+  const file = path.join(home, "feat-a.md");
+  fs.writeFileSync(file, DESC_V1);
+  const { sha256 } = old.linkDescription(REPO, ENTRY, file, AGENT);
+  const ids = {
+    sum: old.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "lines", path: "app.js", side: "new", startLine: 3, endLine: 3, body: "Name it?", author: HUMAN }),
+    exported: old.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "lines", path: "app.js", side: "new", startLine: 4, endLine: 4, body: "Export more?", author: HUMAN }),
+    file: old.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "file", path: "app.js", body: "Split this file.", author: HUMAN }),
+    branch: old.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "branch", body: "Ship it?", author: HUMAN }),
+    description: old.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: sha256, quote: "Rebuild threads", body: "Why rebuild?", author: HUMAN }),
+  };
+  old.reply(ids.sum, "Sure.", AGENT);
+  old.setStatus(ids.file, "suggested", AGENT, "Split it.");
+  old.observe(REPO, ENTRY, V2_EDIT_ELSEWHERE);
+  old.observe(REPO, ENTRY, { ...V3_EDIT_IT, patch: V3_EDIT_IT.patch.replace("export { c };", "export { c, a };") });
+  fs.writeFileSync(file, `Intro paragraph.\n\n${DESC_V1}`);
+  const later = normalizeDescription({ title: null, body: `Intro paragraph.\n\n${DESC_V1}` }).sha256;
+  ids.later = old.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: later, quote: "Intro paragraph", body: "Needed?", author: HUMAN });
+  old.reply(ids.description, "Still?", HUMAN, { pending: true });
+
+  const stack = old.linkStackDescription(REPO, [ENTRY, "feat/b"], descriptionFile("## Why\n\nShip auth in pieces.\n"), AGENT);
+  ids.stack = old.createThread({ repo: REPO, entry: stack.entry, snapshot: STACK_SNAPSHOT, kind: "branch", body: "Ship the stack.", author: HUMAN });
+  old.setViewed(REPO, ENTRY, "app.js", "file-sha");
+  old.setBranchViewed(REPO, ENTRY, "diff-sha");
+
+  const said = {
+    ids,
+    stackEntry: stack.entry,
+    branch: old.threadsAt(REPO, ENTRY, { includePending: true }),
+    stack: old.threadsAt(REPO, stack.entry, { includePending: true }),
+    waiting: old.waitingOnAgent({ repo: REPO }),
+    counts: old.countsByEntry(REPO),
+    viewed: old.viewed(REPO, ENTRY),
+    branchViewed: old.branchViewedOn(REPO, ENTRY),
+    pending: old.pendingCount(),
+    versions: old.versions(REPO, ENTRY),
+  };
   old.close();
+  return said;
+}
+
+/**
+ * A thread as both stores agree to show it. A message on a description
+ * thread used to name the diff's version, and now names the description's,
+ * so its seq is left out there.
+ */
+function comparable(t) {
+  return { ...t, messages: t.messages.map((m) => (t.kind === "description" ? { ...m, versionSeq: undefined } : m)) };
+}
+
+test("a store kept before peanut is copied in once, with its ids, and reads as it did", async () => {
+  const home = tempHome();
+  const said = await legacyStore(home);
+  const legacyFile = path.join(home, "diffview.sqlite3");
+  const before = fs.readFileSync(legacyFile);
+
   const store = await openStore(home);
-  assert.equal(store.thread(1).thread.messages[0].body, "kept?");
-  assert.equal(fs.readdirSync(path.join(home, "backups")).length, 1);
-  const { sha256 } = store.linkDescription(REPO, ENTRY, descriptionFile(DESC_V1), AGENT);
-  store.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: sha256, quote: "Add a table", body: "ok", author: HUMAN });
+  const branch = store.threadsAt(REPO, ENTRY, { includePending: true });
+  assert.deepEqual(branch.threads.map(comparable), said.branch.threads.map(comparable));
+  assert.deepEqual(branch.version, said.branch.version);
+  assert.deepEqual(branch.threads.map((t) => [t.id, t.kind, t.state]), [
+    [said.ids.sum, "lines", "outdated"],
+    [said.ids.exported, "lines", "outdated"],
+    [said.ids.file, "file", "carried"],
+    [said.ids.branch, "branch", "carried"],
+    [said.ids.description, "description", "carried"],
+    [said.ids.later, "description", "current"],
+  ]);
+  assert.deepEqual(store.threadsAt(REPO, said.stackEntry, { includePending: true }).threads.map(comparable), said.stack.threads.map(comparable));
+  assert.deepEqual(store.waitingOnAgent({ repo: REPO }), said.waiting);
+  assert.deepEqual(store.countsByEntry(REPO), said.counts);
+  assert.deepEqual(store.viewed(REPO, ENTRY), said.viewed);
+  assert.equal(store.branchViewedOn(REPO, ENTRY), said.branchViewed);
+  assert.equal(store.pendingCount(), said.pending);
+  // A diff version counts the threads made on the diff; description threads are on the description now, so they no longer count there.
+  const descriptionThreads = [said.ids.description, said.ids.later].length;
+  assert.deepEqual(
+    store.versions(REPO, ENTRY),
+    said.versions.map((v) => (v.seq === 1 ? { ...v, threads: v.threads - descriptionThreads } : v)),
+  );
+  assert.equal(store.stackEntry(REPO, ["feat/b"]), said.stackEntry);
+
+  // New threads and messages take ids after the old ones.
+  const next = comment(store);
+  assert.ok(next > Math.max(...Object.values(said.ids)));
+  store.close();
+
+  assert.deepEqual(fs.readFileSync(legacyFile), before, "the old file is only read");
+  const reopened = await openStore(home);
+  assert.equal(reopened.threadsAt(REPO, ENTRY).threads.filter((t) => t.id === next).length, 1, "the import ran once");
 });
 
-test("a version 3 store moves its descriptions into files and links them, and comments on them stay put", async () => {
+test("a store from before version 5, or a peanut store that already has comments, is not imported into", async () => {
   const home = tempHome();
-  const before = await openStore(home);
-  const { sha256 } = before.linkDescription(REPO, ENTRY, descriptionFile(DESC_V1), AGENT);
-  const id = before.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "description", descriptionSha: sha256, quote: "Add a table", body: "ok", author: HUMAN });
-  before.close();
-  // What a version 3 store held: descriptions as rows, and no links.
-  const { DatabaseSync } = await import("node:sqlite");
-  const old = new DatabaseSync(path.join(home, "diffview.sqlite3"));
-  old.exec(`UPDATE descriptions SET title = 'Store descriptions', sha256 = '${normalizeDescription({ title: "Store descriptions", body: DESC_V1 }).sha256}';
-    INSERT INTO descriptions (repo, entry, seq, title, body, sha256, author, author_kind, created_at)
-      VALUES ('${REPO}', 'stack:${ENTRY}', 1, NULL, 'The stack.', 'x', 'agent', 'agent', 'x');
-    DELETE FROM description_links;
-    PRAGMA user_version = 3;`);
+  const old = new (await import("node:sqlite")).DatabaseSync(path.join(home, "diffview.sqlite3"));
+  old.exec("PRAGMA user_version = 3");
   old.close();
+  await assert.rejects(openStore(home), /older diffview \(store version 3\)/);
 
-  const store = await openStore(home);
-  const exported = path.join(home, "descriptions", "demo", "branches", "feat", "a.md");
-  assert.equal(fs.readFileSync(exported, "utf8"), `---\ntitle: Store descriptions\n---\n\n${DESC_V1}`);
-  assert.equal(store.description(REPO, ENTRY).path, exported);
-  assert.equal(store.description(REPO, `stack:${ENTRY}`).path, path.join(home, "descriptions", "demo", "stacks", "feat", "a.md"));
-  assert.equal(store.thread(id).thread.state, "current", "the exported file reads as the snapshot the comment was made on");
+  const busy = tempHome();
+  const store = await openStore(busy);
+  comment(store);
   store.close();
-  assert.equal((await openStore(home)).description(REPO, ENTRY).path, exported, "a second open exports nothing again");
+  await legacyStore(busy);
+  await assert.rejects(openStore(busy), /already holds comments/);
 });
 
 test("the change token moves on writes from any process, and not on reads", async () => {

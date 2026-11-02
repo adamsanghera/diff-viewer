@@ -83,7 +83,7 @@ Checking a file's **Viewed** box collapses it, once; the chevron before its name
 
 The bars between a file's hunks expand the unmodified lines around them. A changed file's two versions load with the diff, so highlighting reads each side as a whole file, and a bar only uncovers lines already loaded. A file that starts collapsed loads when you open it. A comment can sit on those lines as well as on the diff's own: it follows the line's text, and the line is expanded again when you come back to the page. An agent reading the thread sees the lines either way.
 
-Comments live in `~/.diffview/diffview.sqlite3` (set `DIFFVIEW_HOME` to move it), keyed by each repo's git common dir and branch name, so every worktree of a repo shares them. Deleting is permanent and only in the page. [`skills/diffview-comments/SKILL.md`](skills/diffview-comments/SKILL.md) teaches an agent this loop. Copy it into the skills folder that agent loads. Pi reads `~/.pi/agent/skills` and a project's `.pi/skills`.
+Comments live in `~/.diffview/peanut.sqlite3` (set `DIFFVIEW_HOME` to move it), kept by [peanut](../peanut), the comment library diffview shares with mdview. They are keyed by each repo's git common dir and branch name, so every worktree of a repo shares them. A store from before peanut (`diffview.sqlite3`) is copied in the first time diffview opens, keeping every thread id, and left as it was. Deleting is permanent and only in the page. [`skills/diffview-comments/SKILL.md`](skills/diffview-comments/SKILL.md) teaches an agent this loop. Copy it into the skills folder that agent loads. Pi reads `~/.pi/agent/skills` and a project's `.pi/skills`.
 
 ## Safety
 
