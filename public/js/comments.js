@@ -316,6 +316,19 @@ export function activate(id, { scroll = false } = {}) {
   document.querySelector(`.thread.expanded[data-thread="${id}"] textarea.reply`)?.focus({ preventScroll: true });
 }
 
+/**
+ * Opens a card the person clicked. The open card sits level with its lines,
+ * which can be a screen away from where stacking had put it, so the page
+ * scrolls by as much: the card stays under the pointer and its lines come to it.
+ */
+function openClickedCard(card, container) {
+  const id = Number(card.dataset.thread);
+  const clickedAt = card.getBoundingClientRect().top;
+  activate(id, { scroll: state.comments.listMode });
+  const opened = container.querySelector(`.thread[data-thread="${id}"]`);
+  if (opened && !state.comments.listMode) scrollBy(0, opened.getBoundingClientRect().top - clickedAt);
+}
+
 function deactivate() {
   if (state.comments.active === null) return;
   activate(null);
@@ -681,7 +694,7 @@ export function initComments() {
     } else if (action === "version") {
       commentHooks.showVersion(Number(event.target.dataset.seq));
     } else if (card && !card.classList.contains("expanded") && !event.target.closest("a")) {
-      activate(id, { scroll: state.comments.listMode });
+      openClickedCard(card, event.currentTarget);
     }
   };
   const onReplyKey = (event) => {

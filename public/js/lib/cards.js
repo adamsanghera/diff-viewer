@@ -52,13 +52,18 @@ function messageItem(m, first) {
   </li>`;
 }
 
+/** Resolve, in every card's header, so a thread resolves in one click without opening it. A pending thread is a draft, so it has none. */
+function resolveButton(t) {
+  if (t.pending || t.status === "resolved") return "";
+  return '<button class="thread-resolve" type="button" data-action="resolved" title="Resolve this thread">✓ Resolve</button>';
+}
+
 /** The open card's reply box and actions. A pending thread is a draft, so it can only be replied to or deleted. */
 function threadControls(t, batching) {
   const placeholder = t.status === "suggested" ? "Reply and reopen…" : "Reply…";
   const reopen = t.pending || t.status === "open" ? "" : '<button class="btn" type="button" data-action="open">Reopen</button>';
-  const resolve = t.pending || t.status === "resolved" ? "" : '<button class="btn btn-primary" type="button" data-action="resolved">Resolve</button>';
   return `<textarea class="reply" rows="1" placeholder="${placeholder}" aria-label="Reply"></textarea>
-    <div class="thread-actions"><button class="btn btn-danger" type="button" data-action="delete-thread" title="Delete this thread permanently">Delete</button><div class="thread-actions-end">${submitButton(batching, { now: "Reply", primary: false })}${reopen}${resolve}</div></div>`;
+    <div class="thread-actions"><button class="btn btn-danger" type="button" data-action="delete-thread" title="Delete this thread permanently">Delete</button><div class="thread-actions-end">${submitButton(batching, { now: "Reply", primary: false })}${reopen}</div></div>`;
 }
 
 /** For an outdated thread: what its lines became, and a link to the version it was made on. */
@@ -95,7 +100,7 @@ export function threadCard(t, { expanded = false, batching = false, listed = fal
   const where = listed ? `<span class="thread-where">${escapeHtml(anchorLabel(t))}</span>` : "";
   const lines = listed || t.state === "outdated" || t.kind === "description" ? excerpt(t) : "";
   return `<section class="thread${expanded ? " expanded" : ""}" data-thread="${t.id}" data-status="${t.status}" data-pending="${t.pending}" data-turn="${t.waitingOn ?? ""}">
-    <header class="thread-head"><span class="thread-id">#${t.id}</span>${where}${threadChips(t)}</header>
+    <header class="thread-head"><span class="thread-id">#${t.id}</span>${where}${threadChips(t)}${resolveButton(t)}</header>
     ${lines}
     ${nowReads(t)}
     <ol class="messages">${items.join("")}</ol>

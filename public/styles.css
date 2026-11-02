@@ -452,6 +452,8 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 .thread[data-status="resolved"] { opacity: 0.75; }
 .thread-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; font-size: var(--text-sm); color: var(--text-faint); }
 .thread-id { font-variant-numeric: tabular-nums; }
+.thread-resolve { margin-left: auto; height: 20px; padding: 0 8px; border-radius: var(--radius-xs); font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--text-soft); }
+.thread-resolve:hover { background: var(--success-soft); color: var(--success); }
 .thread-where { font-family: var(--mono); font-size: var(--text-sm); color: var(--text-soft); }
 .chip-suggested { color: var(--state-suggested); }
 .chip-pending { border-style: dashed; }

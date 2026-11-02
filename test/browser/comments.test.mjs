@@ -195,7 +195,46 @@ test("a suggested card's buttons stay inside the card", options, async () => {
   }
 });
 
-test("an agent's reply shows up live, and resolving clears the line", options, async () => {
+test("clicking a margin card stacked far below its line keeps it under the pointer, and scrolls its line level with it", options, async () => {
+  const repo = makeRepo();
+  repo.git("checkout", "-q", "-b", "feat/a");
+  repo.commit("a", { "src/app.js": lines(200) });
+  await ensureVendorBundle();
+  const started = await startServer({ dir: repo.dir, port: 4960, store: await openStore(fs.mkdtempSync(path.join(os.tmpdir(), "diffview-stack-"))) });
+  servers.push(started);
+  const origin = started.url.replace(/\/$/, "");
+  const { sha } = await (await fetch(`${started.url}api/diff?branch=feat%2Fa`)).json();
+  const body = "A comment long enough to fill the three lines a closed card shows, so that cards on neighbouring lines stack well below them.";
+  for (let line = 100; line < 110; line++) {
+    await fetch(`${origin}/api/comments`, {
+      method: "POST",
+      headers: { origin, "content-type": "application/json" },
+      body: JSON.stringify({ branch: "feat/a", sha, kind: "lines", path: "src/app.js", side: "new", startLine: line, endLine: line, body }),
+    });
+  }
+  const page = await (await chrome()).open(`${started.url}view`, { width: 1700, height: 950 });
+  await page.waitFor(() => document.querySelectorAll("#rail .thread").length === 10 && document.querySelector(".file-diff > *")?.shadowRoot?.querySelector('[data-column-number="109"]'), {
+    what: "ten cards beside the diff",
+  });
+  const last = () =>
+    page.eval(() => {
+      const card = document.querySelector("#rail .thread:last-of-type");
+      const row = document.querySelector(".file-diff > *").shadowRoot.querySelector('[data-column-number="109"]');
+      return { card: card.getBoundingClientRect().top, line: row.getBoundingClientRect().top, expanded: card.classList.contains("expanded") };
+    });
+  await page.eval(() => window.scrollTo(0, document.querySelector("#rail .thread:last-of-type").getBoundingClientRect().top + scrollY - 700));
+  const before = await last();
+  assert.ok(before.card - before.line > 700, `the last card starts well below its line: ${JSON.stringify(before)}`);
+
+  await page.eval(() => document.querySelector("#rail .thread:last-of-type .message-body").click());
+  const after = await last();
+  assert.equal(after.expanded, true);
+  assert.ok(Math.abs(after.card - before.card) <= 1, `the card stays where it was clicked: ${JSON.stringify({ before, after })}`);
+  assert.ok(Math.abs(after.card - after.line) <= 1, `its line comes level with it: ${JSON.stringify(after)}`);
+  assert.deepEqual(page.errors, []);
+});
+
+test("an agent's reply shows up live, and one click on a closed card's Resolve clears the line", options, async () => {
   const { page, home } = await openViewer();
   await commentOnLine11(page);
   const [{ id }] = await page.eval(railCards);
@@ -204,7 +243,9 @@ test("an agent's reply shows up live, and resolving clears the line", options, a
   agentStore.close();
   await page.waitFor(() => document.querySelector("#rail .thread")?.innerText.includes("To reuse compute()"), { what: "the agent's reply" });
   assert.deepEqual(await page.eval(markedRows), ["11:turn"]);
-  await page.eval(() => document.querySelector('#rail [data-action="resolved"]').click());
+  await page.eval(() => document.querySelector("#rail textarea.reply").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  assert.equal(await page.eval(() => document.querySelector("#rail .thread.expanded")), null, "Escape closes the card");
+  await page.eval(() => document.querySelector('#rail .thread-head [data-action="resolved"]').click());
   await page.waitFor(() => !document.documentElement.classList.contains("rail-docked"), { what: "the rail to close" });
   assert.deepEqual(await page.eval(markedRows), []);
 });
