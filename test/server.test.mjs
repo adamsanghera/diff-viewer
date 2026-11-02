@@ -32,6 +32,14 @@ async function serve(repo) {
   return { ...started, get };
 }
 
+test("port 0 takes any free port, which the url names and the Host check accepts", async () => {
+  const started = await startServer({ dir: stackRepo().dir, port: 0 });
+  servers.push(started);
+  assert.ok(started.port > 0, `bound to ${started.port}`);
+  assert.equal(started.url, `http://127.0.0.1:${started.port}/`);
+  assert.equal((await fetch(`${started.url}api/info`)).status, 200);
+});
+
 test("the stack and a branch's committed diff", async () => {
   const repo = stackRepo();
   const { get } = await serve(repo);

@@ -32,7 +32,7 @@ async function openViewer({ width = 1700 } = {}) {
   repo.commit("b", { "src/app.js": lines(30, { 10: "const v10 = compute(10);" }), "src/util.js": "export const compute = (x) => x * 2;\n" });
   await ensureVendorBundle();
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "diffview-browser-"));
-  const started = await startServer({ dir: repo.dir, port: 4960, store: await openStore(home) });
+  const started = await startServer({ dir: repo.dir, port: 0, store: await openStore(home) });
   servers.push(started);
   const page = await (await chrome()).open(`${started.url}view`, { width, height: 950 });
   await page.waitFor(() => document.querySelector(".file-diff > *")?.shadowRoot?.querySelector("[data-line]"), { what: "a rendered diff" });
@@ -200,7 +200,7 @@ test("clicking a margin card stacked far below its line keeps it under the point
   repo.git("checkout", "-q", "-b", "feat/a");
   repo.commit("a", { "src/app.js": lines(200) });
   await ensureVendorBundle();
-  const started = await startServer({ dir: repo.dir, port: 4960, store: await openStore(fs.mkdtempSync(path.join(os.tmpdir(), "diffview-stack-"))) });
+  const started = await startServer({ dir: repo.dir, port: 0, store: await openStore(fs.mkdtempSync(path.join(os.tmpdir(), "diffview-stack-"))) });
   servers.push(started);
   const origin = started.url.replace(/\/$/, "");
   const { sha } = await (await fetch(`${started.url}api/diff?branch=feat%2Fa`)).json();
@@ -347,7 +347,7 @@ test("the first comment's margin narrows the diff from split to unified, and the
   const edits = Object.fromEntries(Array.from({ length: 40 }, (_, i) => [i * 5, `const v${i * 5} = changed(${i});`]));
   repo.commit("a", { "src/app.js": lines(200, edits) });
   await ensureVendorBundle();
-  const started = await startServer({ dir: repo.dir, port: 4960, store: await openStore(fs.mkdtempSync(path.join(os.tmpdir(), "diffview-hold-"))) });
+  const started = await startServer({ dir: repo.dir, port: 0, store: await openStore(fs.mkdtempSync(path.join(os.tmpdir(), "diffview-hold-"))) });
   servers.push(started);
   // 1500px wide: the diff pane is about 1150px without the margin (split under Auto) and 836px beside it (unified).
   const page = await (await chrome()).open(`${started.url}view`, { width: 1500, height: 950 });
@@ -506,7 +506,7 @@ test("the filter menu hides tests and generated files by default, filters by kin
   repo.git("checkout", "-q", "-b", "feat/a");
   repo.commit("a", { "src/app.js": "one\n", "src/app.test.js": "test one\ntest two\n", "docs/api.md": "generated\n" });
   await ensureVendorBundle();
-  const started = await startServer({ dir: repo.dir, port: 4960, store: await openStore(fs.mkdtempSync(path.join(os.tmpdir(), "diffview-kinds-"))) });
+  const started = await startServer({ dir: repo.dir, port: 0, store: await openStore(fs.mkdtempSync(path.join(os.tmpdir(), "diffview-kinds-"))) });
   servers.push(started);
   const page = await (await chrome()).open(`${started.url}view`, { width: 1700, height: 950 });
   const view = () =>

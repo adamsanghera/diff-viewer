@@ -17,7 +17,7 @@ async function openViewer() {
   repo.git("checkout", "-q", "-b", "feat/b");
   repo.commit("b", { "src/app.js": "const a = 1;\nconst b = 3;\n" });
   await ensureVendorBundle();
-  const started = await startServer({ dir: repo.dir, port: 4950 });
+  const started = await startServer({ dir: repo.dir, port: 0 });
   servers.push(started);
   const page = await (await chrome()).open(`${started.url}view`);
   await page.waitFor(() => document.querySelector(".file-diff > *")?.shadowRoot?.querySelector("[data-line]"), { what: "a rendered diff" });
@@ -203,7 +203,7 @@ test("a change inside a comment opened above the hunk is highlighted as a commen
   repo.git("checkout", "-q", "-b", "feat/b");
   repo.commit("b", { "src/app.js": commented(2) });
   await ensureVendorBundle();
-  const started = await startServer({ dir: repo.dir, port: 4950 });
+  const started = await startServer({ dir: repo.dir, port: 0 });
   servers.push(started);
   const page = await (await chrome()).open(`${started.url}view`);
   await page.waitFor(() => document.querySelector(".file-diff > *")?.shadowRoot?.querySelector("[data-line]"), { what: "a rendered diff" });
