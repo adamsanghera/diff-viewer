@@ -11,9 +11,9 @@ A local viewer for stacked branches. Point it at a repo, and it opens a browser 
 ## Setup
 
 ```bash
-cd ~/code/diff-viewer
+cd ~/mono/diff-viewer
 npm install
-ln -s ~/code/diff-viewer/bin/diffview.mjs ~/.local/bin/diffview   # or npm link
+ln -s ~/mono/diff-viewer/bin/diffview.mjs ~/.local/bin/diffview   # or npm link
 ```
 
 The first start bundles Pierre's renderer into `public/vendor/` (under a second; rebuilt whenever `package-lock.json` changes).

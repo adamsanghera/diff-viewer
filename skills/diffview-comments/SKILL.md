@@ -11,9 +11,7 @@ or not, and untracked files never appear, so commit before you ask for
 review, and commit again before you say a comment is addressed. The
 comments live in a local SQLite store
 (`~/.diffview`), never in the repo. Read and answer them with
-`diffview comments`, and change the code with your usual tools. If
-`diffview` is not on PATH, run `node ~/code/diff-viewer/bin/diffview.mjs
-comments ...` instead.
+`diffview comments`, and change the code with your usual tools.
 
 Run it from inside the repo. Its scope is the stack of the branch checked
 out there, so it needs no arguments. `--branch <name>` narrows it to one
