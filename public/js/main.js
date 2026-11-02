@@ -17,6 +17,7 @@ import { renderDescription } from "./description.js";
 import { filters, resetFilters, setFilters } from "./filters.js";
 import { renderOverview } from "./overview.js";
 import { applyLayout, renderFiles, rerenderFiles, setCollapsed, setLayout } from "./diffs.js";
+import { holdHooks } from "./hold.js";
 import { escapeHtml } from "./lib/format.js";
 import { reportLoad } from "./perf.js";
 import { installShortcuts } from "./shortcuts.js";
@@ -227,6 +228,7 @@ async function main() {
   state.branch = first;
   applyTheme();
   setLayout(state.layout);
+  holdHooks.relayout = onResize;
   Object.assign(commentHooks, {
     renderFiles,
     rerenderFiles,

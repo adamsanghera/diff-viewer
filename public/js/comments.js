@@ -14,6 +14,7 @@ import { anchorFromRange, blockAt, descriptionTarget, paintDescription, threadAt
 import { stackCards } from "./lib/card-stack.js";
 import { anchorLabel, railHead, railList, threadCard } from "./lib/cards.js";
 import { renderedPaths } from "./filters.js";
+import { holdReadingLine } from "./hold.js";
 import { escapeHtml } from "./lib/format.js";
 import { isSubmitKey, submitButton } from "./lib/keys.js";
 import { $, autosize, getJson, PIERRE_SIDE, postJson, root, SIDE_OF, state, toast } from "./state.js";
@@ -118,7 +119,7 @@ export function renderAnnotation(annotation) {
 /* Rows inside Pierre's shadow roots */
 
 /** The row showing `line` on `side` of a rendered file, or null when it is not on screen (collapsed, or not expanded). */
-function rowFor(item, side, line) {
+export function rowFor(item, side, line) {
   const shadow = item.section.firstElementChild?.shadowRoot;
   if (!shadow) return null;
   const unified = shadow.querySelector("code[data-unified]");
@@ -204,7 +205,8 @@ export function renderComments({ annotationsChanged = false } = {}) {
   if (!state.comments.enabled) return;
   renderHeader();
   if (placedThreads().length) state.comments.railHeld = true;
-  root.classList.toggle("rail-docked", railShown());
+  const docked = railShown();
+  if (docked !== root.classList.contains("rail-docked")) holdReadingLine(() => root.classList.toggle("rail-docked", docked));
   if (annotationsChanged) commentHooks.rerenderFiles();
   for (const item of state.views) {
     markRows(item);
@@ -812,6 +814,8 @@ export function toggleInline() {
   state.comments.inline = !state.comments.inline;
   localStorage.setItem("diffview.threads", state.comments.inline ? "inline" : "rail");
   toast(state.comments.inline ? "Threads inline" : "Threads in the margin");
-  renderComments();
-  commentHooks.rerenderFiles();
+  holdReadingLine(() => {
+    renderComments();
+    commentHooks.rerenderFiles();
+  });
 }

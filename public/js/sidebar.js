@@ -1,6 +1,7 @@
 /** The sidebar: the stack, the branch's files, and showing or hiding it. */
 import { viewedState } from "./comments.js";
 import { escapeHtml } from "./lib/format.js";
+import { holdReadingLine } from "./hold.js";
 import { counted, extensionOf, filters, HIDE_CHOICES, hiddenSummary, KIND_CHOICES, rendered, shownSize } from "./filters.js";
 import { buildTree, stackRows } from "./lib/tree.js";
 import { $, root, state } from "./state.js";
@@ -13,8 +14,10 @@ const VIEWED_MARKS = { viewed: '<span class="viewed-mark" title="Viewed">✓</sp
 const PANELS = { stack: "no-stack", files: "no-files" };
 
 function togglePanel(panel) {
-  const hidden = root.classList.toggle(PANELS[panel]);
-  localStorage.setItem(`diffview.panel.${panel}`, hidden ? "hidden" : "shown");
+  holdReadingLine(() => {
+    const hidden = root.classList.toggle(PANELS[panel]);
+    localStorage.setItem(`diffview.panel.${panel}`, hidden ? "hidden" : "shown");
+  });
 }
 
 export const toggleStackPanel = () => togglePanel("stack");

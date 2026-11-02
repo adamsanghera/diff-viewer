@@ -340,6 +340,46 @@ test("i moves threads inline under their lines, and back", options, async () => 
   await page.waitFor(() => document.querySelectorAll("#rail .thread").length === 1 && !document.querySelector(".inline-thread"), { what: "the card back in the rail" });
 });
 
+test("the first comment's margin narrows the diff from split to unified, and the commented line stays where it was on screen", options, async () => {
+  const repo = makeRepo();
+  repo.commit("base", { "src/app.js": lines(200) });
+  repo.git("checkout", "-q", "-b", "feat/a");
+  const edits = Object.fromEntries(Array.from({ length: 40 }, (_, i) => [i * 5, `const v${i * 5} = changed(${i});`]));
+  repo.commit("a", { "src/app.js": lines(200, edits) });
+  await ensureVendorBundle();
+  const started = await startServer({ dir: repo.dir, port: 4960, store: await openStore(fs.mkdtempSync(path.join(os.tmpdir(), "diffview-hold-"))) });
+  servers.push(started);
+  // 1500px wide: the diff pane is about 1150px without the margin (split under Auto) and 836px beside it (unified).
+  const page = await (await chrome()).open(`${started.url}view`, { width: 1500, height: 950 });
+  const diffTypeIs = (type) => document.querySelector(".file-diff > *")?.shadowRoot?.querySelector("[data-diff-type]")?.dataset.diffType === type;
+  await page.waitFor(diffTypeIs, { what: "a split diff" }, "split");
+  const lineTop = () =>
+    page.eval(() => {
+      const shadow = document.querySelector(".file-diff > *").shadowRoot;
+      const row = shadow.querySelector('code[data-additions] [data-line="151"]') ?? [...shadow.querySelectorAll("code[data-unified] [data-line='151']")].find((r) => r.dataset.lineType !== "change-deletion");
+      return row.getBoundingClientRect().top;
+    });
+  await page.eval(() => {
+    const row = document.querySelector(".file-diff > *").shadowRoot.querySelector('code[data-additions] [data-line="151"]');
+    scrollBy(0, row.getBoundingClientRect().top - 500);
+  });
+  const before = await lineTop();
+  await clickLineNumber(page, 151);
+  await page.waitFor(() => !document.querySelector("#composer").hidden, { what: "the composer" });
+  await typeAndPress(page, "Hold still");
+  await page.waitFor(diffTypeIs, { what: "the margin to narrow the diff to one column" }, "single");
+  await page.eval(() => new Promise((resolve) => setTimeout(resolve, 600)));
+  const after = await lineTop();
+  assert.ok(Math.abs(after - before) <= 1, `line 151 stays put: ${JSON.stringify({ before, after })}`);
+
+  for (const key of ["s", "f"]) await page.eval((k) => document.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true })), key);
+  await page.waitFor(diffTypeIs, { what: "hiding the sidebar to widen the diff to split again" }, "split");
+  await page.eval(() => new Promise((resolve) => setTimeout(resolve, 600)));
+  const widened = await lineTop();
+  assert.ok(Math.abs(widened - before) <= 1, `and stays put when the sidebar goes: ${JSON.stringify({ before, widened })}`);
+  assert.deepEqual(page.errors, []);
+});
+
 test("the rail's switch shows which of Beside code and List is on, and moves between them", options, async () => {
   const { page } = await openViewer();
   await commentOnLine11(page);
