@@ -25,7 +25,7 @@ export function anchorLabel(t) {
 
 function threadChips(t) {
   const chips = [];
-  if (t.pending) chips.push('<span class="chip chip-pending" title="In your batch. Agents see it after you send.">Pending</span>');
+  if (t.pending) chips.push('<span class="chip" title="In your batch. Agents see it after you send.">Pending</span>');
   if (t.status === "suggested") chips.push('<span class="chip chip-suggested">Agent suggests resolving</span>');
   if (t.status === "open" && t.waitingOn === "human") chips.push('<span class="chip chip-turn" title="The agent answered. This waits on you.">Your turn</span>');
   if (t.status === "resolved") chips.push('<span class="chip">Resolved</span>');
@@ -36,13 +36,17 @@ function threadChips(t) {
   return chips.join("");
 }
 
-/** One message. Its delete button shows on open cards; on the first message it deletes the whole thread. */
-function messageItem(m, first) {
+/**
+ * One message. Its delete button shows on open cards; on the first message it
+ * deletes the whole thread. A pending reply is badged, unless the whole thread
+ * is pending and its header already says so.
+ */
+function messageItem(m, first, threadPending) {
   const time = Date.parse(m.sentAt ?? m.createdAt);
   const session = m.session ? ` title="Session ${escapeHtml(m.session)}"` : "";
   const badge =
     (m.authorKind === "agent" ? `<span class="badge"${session}>agent</span>` : "") +
-    (m.pending ? '<span class="badge badge-pending" title="In your batch. Agents see it after you send.">pending</span>' : "");
+    (m.pending && !threadPending ? '<span class="badge badge-pending" title="In your batch. Agents see it after you send.">pending</span>' : "");
   const remove = first
     ? '<button class="message-delete" type="button" data-action="delete-thread" title="Delete this thread permanently">×</button>'
     : `<button class="message-delete" type="button" data-action="delete-message" data-message="${m.id}" title="Delete this message permanently">×</button>`;
@@ -94,7 +98,7 @@ function excerpt(t) {
  */
 export function threadCard(t, { expanded = false, batching = false, listed = false }) {
   const shown = expanded || t.messages.length <= 2 ? t.messages : [t.messages[0], t.messages.at(-1)];
-  const items = shown.map((m) => messageItem(m, m.id === t.messages[0].id));
+  const items = shown.map((m) => messageItem(m, m.id === t.messages[0].id, t.pending));
   const hidden = t.messages.length - shown.length;
   if (hidden) items.splice(1, 0, `<li class="message more">${hidden} more</li>`);
   const where = listed ? `<span class="thread-where">${escapeHtml(anchorLabel(t))}</span>` : "";

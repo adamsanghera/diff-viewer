@@ -449,7 +449,8 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 .thread[data-status="open"] { border-left: 3px solid var(--state-open); }
 .thread[data-status="suggested"] { border-left: 3px solid var(--state-suggested); }
 .thread[data-status="open"][data-turn="human"] { border-left: 3px solid var(--state-turn); }
-.thread[data-pending="true"] { border-style: dashed; border-left-color: var(--text-faint); }
+/* A draft: the gray its lines are marked with, over a faint wash, until the batch is sent. */
+.thread[data-pending="true"] { border-left: 3px solid var(--text-faint); background-image: linear-gradient(var(--bg-soft), var(--bg-soft)); }
 .thread[data-status="resolved"] { opacity: 0.75; }
 .thread-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; font-size: var(--text-sm); color: var(--text-faint); }
 .thread-id { font-variant-numeric: tabular-nums; }
@@ -457,7 +458,6 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 .thread-resolve:hover { background: var(--success-soft); color: var(--success); }
 .thread-where { font-family: var(--mono); font-size: var(--text-sm); color: var(--text-soft); }
 .chip-suggested { color: var(--state-suggested); }
-.chip-pending { border-style: dashed; }
 .chip-turn { color: var(--state-turn); }
 .chip-outdated { color: var(--state-outdated); }
 .thread-excerpt { margin: 0 0 8px; padding: 4px 8px; border-left: 2px solid var(--state-open); background: var(--code-bg); font: var(--text-sm) / 1.5 var(--code-font); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 7.5em; overflow: hidden; }
