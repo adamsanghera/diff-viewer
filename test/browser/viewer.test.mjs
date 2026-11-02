@@ -91,6 +91,18 @@ test("clicking a branch shows its diff, and Unified switches to one column", opt
   assert.deepEqual(page.errors, []);
 });
 
+test("moving to another branch marks the page loading, naming the branch at once, until its diff is in", options, async () => {
+  const { page } = await openViewer();
+  const atClick = await page.eval(() => {
+    document.querySelector('.stack-row[data-branch="feat/a"]').click();
+    return { loading: document.documentElement.classList.contains("loading"), crumb: document.querySelector("#branch-name").textContent };
+  });
+  assert.deepEqual(atClick, { loading: true, crumb: "feat/a" });
+  await page.waitFor(() => !document.documentElement.classList.contains("loading"), { what: "the load to finish" });
+  assert.equal(await page.eval(() => document.querySelector(".file-diff > *").shadowRoot.textContent.includes("const b = 2;")), true, "and feat/a's diff is what shows");
+  assert.equal(await page.eval(() => document.documentElement.scrollWidth <= innerWidth), true, "the loading bar never widens the page");
+});
+
 test("s shows and hides the stack and f the files, each on its own; with both hidden the sidebar goes", options, async () => {
   const { page } = await openViewer();
   const press = (key) => page.eval((k) => document.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true })), key);

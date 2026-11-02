@@ -22,7 +22,7 @@ import { escapeHtml } from "./lib/format.js";
 import { reportLoad } from "./perf.js";
 import { installShortcuts } from "./shortcuts.js";
 import { markFileInView, renderStack, renderTree, toggleDir, toggleFilesPanel, toggleFilterMenu, toggleStackPanel } from "./sidebar.js";
-import { $, getJson, state, toast } from "./state.js";
+import { $, getJson, root, state, toast } from "./state.js";
 import { applyTheme, cycleTheme, PREFERS_DARK } from "./theme.js";
 
 /* Location */
@@ -43,18 +43,29 @@ function writeLocation() {
 
 /* Loading */
 
-async function loadDescription() {
-  if (!state.comments.enabled) return;
+/** The branch shown's description from the server: null with none, undefined when comments (and so descriptions) are off. */
+async function fetchDescription() {
+  if (!state.comments.enabled) return undefined;
+  if (!state.branch) return null;
+  const { description } = await getJson(`/api/description?${new URLSearchParams({ branch: state.branch })}`);
+  return description;
+}
+
+function showDescription(description) {
+  if (description === undefined) return;
   if (!state.branch) {
     state.description = null;
     renderDescription();
     return;
   }
-  const { description } = await getJson(`/api/description?${new URLSearchParams({ branch: state.branch })}`);
   const shownAs = (d) => (d ? (d.sha256 ?? `missing:${d.path}`) : null);
   if (shownAs(description) === shownAs(state.description) && $("#description").innerHTML) return;
   state.description = description;
   renderDescription();
+}
+
+async function loadDescription() {
+  showDescription(await fetchDescription());
 }
 
 async function loadStack() {
@@ -110,9 +121,19 @@ async function loadDiff({ force = false } = {}) {
   return true;
 }
 
-/** Shows a branch, or with `branch` null, the stack's overview. */
+// Bumped by each show, so only the latest one ends the loading state when several overlap.
+let showing = 0;
+
+/**
+ * Shows a branch, or with `branch` null, the stack's overview. Until it has
+ * painted, the page is marked loading, which dims what is still the previous
+ * branch's, and the crumb already names the new one.
+ */
 async function show(branch, { push = true, version = null } = {}) {
   const started = performance.now();
+  const generation = ++showing;
+  root.classList.add("loading");
+  $("#branch-name").textContent = branch ?? "Overview";
   state.branch = branch;
   state.overview = branch === null ? { entry: null, diff: null, branches: [] } : null;
   state.version = version === null ? null : { seq: version };
@@ -130,13 +151,17 @@ async function show(branch, { push = true, version = null } = {}) {
       await loadDescription();
       renderComments();
     } else {
-      await Promise.all([loadDiff({ force: true }), loadDescription()]);
+      // Fetched together, but the description shows with the diff, not before it: a quick description over the last branch's diff reads as a mix of both.
+      const [, description] = await Promise.all([loadDiff({ force: true }), fetchDescription()]);
+      showDescription(description);
     }
     await loadComments();
     scrollTo(0, 0);
     reportLoad(`Showed ${branch ?? "the overview"}`, started);
   } catch (err) {
     toast(err.message);
+  } finally {
+    if (generation === showing) root.classList.remove("loading");
   }
 }
 

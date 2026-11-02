@@ -622,6 +622,28 @@ test("the agent's description shows above the diff, and selected text in it take
   assert.equal(await page.eval(() => CSS.highlights.get("dv-description-open")?.size ?? 0), 0);
 });
 
+test("moving to another branch shows its description with its diff, not over the last branch's diff", options, async () => {
+  const { page, home, started } = await openViewer();
+  const agent = await openStore(home);
+  agent.linkDescription(started.repo.commonDir, "feat/a", descriptionFile("---\ntitle: Branch a\n---\nA's body.\n"), { name: "agent", kind: "agent" });
+  agent.linkDescription(started.repo.commonDir, "feat/b", descriptionFile("---\ntitle: Branch b\n---\nB's body.\n"), { name: "agent", kind: "agent" });
+  agent.close();
+  await page.waitFor(() => document.querySelector(".description-title")?.textContent === "Branch b", { what: "b's description" });
+  const seen = await page.eval(
+    () =>
+      new Promise((resolve) => {
+        const files = () => [...document.querySelectorAll(".file-diff")].map((s) => s.dataset.path);
+        new MutationObserver((_, observer) => {
+          if (document.querySelector(".description-title")?.textContent !== "Branch a") return;
+          observer.disconnect();
+          resolve(files());
+        }).observe(document.querySelector("#description"), { childList: true, subtree: true });
+        document.querySelector('.stack-row[data-branch="feat/a"]').click();
+      }),
+  );
+  assert.deepEqual(seen, ["src/app.js"], "when a's description appears, a's diff (app.js alone) is already there");
+});
+
 test("the overview shows the stack's description and its branches, and its text takes comments", options, async () => {
   const { page, home, started } = await openViewer();
   const repo = started.repo.commonDir;
