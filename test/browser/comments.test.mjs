@@ -303,6 +303,23 @@ test("i moves threads inline under their lines, and back", options, async () => 
   await page.waitFor(() => document.querySelectorAll("#rail .thread").length === 1 && !document.querySelector(".inline-thread"), { what: "the card back in the rail" });
 });
 
+test("the rail's switch shows which of Beside code and List is on, and moves between them", options, async () => {
+  const { page } = await openViewer();
+  await commentOnLine11(page);
+  const mode = () =>
+    page.eval(() => ({
+      listing: document.querySelector("#rail").classList.contains("listing"),
+      pressed: [...document.querySelectorAll('#rail [data-action="rail-mode"][aria-pressed="true"]')].map((b) => b.textContent),
+    }));
+  assert.deepEqual(await mode(), { listing: false, pressed: ["Beside code"] });
+  await page.eval(() => document.querySelector('#rail [data-mode="list"]').click());
+  assert.deepEqual(await mode(), { listing: true, pressed: ["List"] });
+  await page.eval(() => document.querySelector('#rail [data-mode="list"]').click());
+  assert.deepEqual(await mode(), { listing: true, pressed: ["List"] }, "pressing the mode that is on keeps it");
+  await page.eval(() => document.querySelector('#rail [data-mode="margin"]').click());
+  assert.deepEqual(await mode(), { listing: false, pressed: ["Beside code"] });
+});
+
 test("in a narrow window threads show inline, since the rail does not fit", options, async () => {
   const { page } = await openViewer({ width: 1000 });
   await clickLineNumber(page, 11);

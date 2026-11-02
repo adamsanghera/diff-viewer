@@ -252,6 +252,7 @@ function renderRail() {
   }
   const threads = state.comments.threads;
   if (state.comments.listMode) {
+    rail.style.minHeight = "";
     rail.innerHTML = railHead(threads, { listing: true }) + railList(threads, { active: state.comments.active, batching: batching() });
     restoreReplies(rail);
     return;
@@ -681,8 +682,10 @@ export function initComments() {
     const action = event.target.closest("[data-action]")?.dataset.action;
     const card = event.target.closest(".thread");
     const id = card && Number(card.dataset.thread);
-    if (action === "list") {
-      state.comments.listMode = !state.comments.listMode;
+    if (action === "list" || action === "rail-mode") {
+      const listing = action === "list" ? !state.comments.listMode : event.target.closest("[data-mode]").dataset.mode === "list";
+      if (listing === state.comments.listMode) return;
+      state.comments.listMode = listing;
       renderComments();
       commentHooks.rerenderFiles();
     } else if (action === "resolved" || action === "open") {
