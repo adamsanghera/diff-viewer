@@ -502,6 +502,8 @@ test("a comment survives a commit elsewhere in the file, and goes outdated when 
   await page.waitFor(() => document.querySelector("#live").dataset.state === "on");
   repo.commit("edit elsewhere", { "src/app.js": lines(30, { 2: "const v2 = 'two';", 10: "const v10 = compute(10);" }) });
   await page.waitFor(() => document.querySelector("#version")?.textContent === "v2", { timeout: 10000, what: "v2" });
+  // The version chip comes with the diff, the cards with the comments: a separate request that can land a moment later.
+  await page.waitFor(() => document.querySelector("#rail .thread")?.innerText.includes("from v1"), { timeout: 10000, what: "the card to say it is from v1" });
   assert.deepEqual(await page.eval(markedRows), ["11:open"]);
   assert.match((await page.eval(railCards))[0].text, /from v1/);
   repo.commit("edit the line", { "src/app.js": lines(30, { 10: "const v10 = compute(10) + 1;" }) });
