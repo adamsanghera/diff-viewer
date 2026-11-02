@@ -398,6 +398,79 @@ test("a store kept before peanut is copied in once, with its ids, and reads as i
   assert.equal(reopened.threadsAt(REPO, ENTRY).threads.filter((t) => t.id === next).length, 1, "the import ran once");
 });
 
+test("when only the old store changed after the move, the move runs again and loses nothing", async () => {
+  const home = tempHome();
+  const said = await legacyStore(home);
+  const first = await openStore(home);
+  // Reading records revisions; that is not writing, and does not stop a second import.
+  first.observe(REPO, ENTRY, V2_EDIT_ELSEWHERE);
+  first.close();
+
+  // An older diffview keeps writing the old file: a new thread, and a resolve.
+  const old = await openLegacyStore(home);
+  const late = old.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "branch", body: "Made after the move.", author: HUMAN });
+  old.setStatus(said.ids.file, "resolved", HUMAN);
+  old.close();
+
+  const warnings = [];
+  const store = await openStore(home, { warn: (text) => warnings.push(text) });
+  const threads = store.threadsAt(REPO, ENTRY).threads;
+  assert.ok(threads.some((t) => t.id === late), "the thread made after the move came over, with its id");
+  assert.equal(threads.find((t) => t.id === said.ids.file).status, "resolved");
+  assert.match(warnings.join("\n"), /copied again/);
+});
+
+test("when both stores changed after the move, it says so and copies neither over the other", async () => {
+  const home = tempHome();
+  await legacyStore(home);
+  const store = await openStore(home);
+  const mine = comment(store);
+  store.close();
+  const old = await openLegacyStore(home);
+  old.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "branch", body: "Made after the move.", author: HUMAN });
+  old.close();
+
+  const warnings = [];
+  const reopened = await openStore(home, { warn: (text) => warnings.push(text) });
+  assert.ok(reopened.threadsAt(REPO, ENTRY).threads.some((t) => t.id === mine), "this store's own thread stays");
+  assert.match(warnings.join("\n"), /has changed since too, so neither was copied/);
+});
+
+test("an import recorded without fingerprints runs again only when that loses nothing", async () => {
+  const forget = async (home) => {
+    // As an import made before fingerprints were recorded left it.
+    const { DatabaseSync } = await import("node:sqlite");
+    const db = new DatabaseSync(path.join(home, "peanut.sqlite3"));
+    db.exec("UPDATE diffview_imports SET legacy_mark = NULL, own_mark = NULL");
+    db.close();
+  };
+  const grow = async (home) => {
+    const old = await openLegacyStore(home);
+    const id = old.createThread({ repo: REPO, entry: ENTRY, snapshot: V1, kind: "branch", body: "Made after the move.", author: HUMAN });
+    old.close();
+    return id;
+  };
+
+  const clean = tempHome();
+  await legacyStore(clean);
+  (await openStore(clean)).close();
+  await forget(clean);
+  const late = await grow(clean);
+  assert.ok((await openStore(clean, { warn() {} })).threadsAt(REPO, ENTRY).threads.some((t) => t.id === late), "nothing was written here, so it imports again");
+
+  const written = tempHome();
+  await legacyStore(written);
+  const store = await openStore(written);
+  const mine = comment(store);
+  store.close();
+  await forget(written);
+  await grow(written);
+  const warnings = [];
+  const reopened = await openStore(written, { warn: (text) => warnings.push(text) });
+  assert.ok(reopened.threadsAt(REPO, ENTRY).threads.some((t) => t.id === mine), "a thread only this store has stays");
+  assert.match(warnings.join("\n"), /neither was copied/);
+});
+
 test("a store from before version 5, or a peanut store that already has comments, is not imported into", async () => {
   const home = tempHome();
   const old = new (await import("node:sqlite")).DatabaseSync(path.join(home, "diffview.sqlite3"));
