@@ -1,12 +1,16 @@
 /** Keyboard shortcuts. `show` (main.js) moves to another branch, or with null to the overview. */
-import { toggleBranchViewed, toggleInline } from "./comments.js";
+import { toggleBranchViewed, toggleInline, toggleMargin } from "./comments.js";
 import { stackRows } from "./lib/tree.js";
 import { hasOverview, toggleFilesPanel, toggleStackPanel } from "./sidebar.js";
 import { $, state } from "./state.js";
 
+// A file scrolled to sits its scroll-margin, 12px, under the bars; j and k treat one there as the current file.
+const FILE_TOP_SLACK = 12;
+
 function moveFile(step) {
   const sections = [...document.querySelectorAll(".file-diff")];
-  const current = sections.findIndex((s) => s.getBoundingClientRect().top > 60);
+  const pinnedBottom = $(".chrome").getBoundingClientRect().bottom;
+  const current = sections.findIndex((s) => s.getBoundingClientRect().top > pinnedBottom + FILE_TOP_SLACK);
   const target = sections[Math.max(0, Math.min(sections.length - 1, (current === -1 ? sections.length : current) + (step > 0 ? 0 : -2)))];
   target?.scrollIntoView({ block: "start" });
 }
@@ -22,6 +26,7 @@ export function installShortcuts({ show }) {
     "/": () => $("#filter").focus(),
     s: toggleStackPanel,
     f: toggleFilesPanel,
+    c: toggleMargin,
     i: toggleInline,
     v: toggleBranchViewed,
     "[": () => moveBranch(-1),

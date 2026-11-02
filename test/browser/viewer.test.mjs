@@ -139,7 +139,7 @@ test("a file's header stays pinned under the top bar while its diff scrolls, and
     page.eval(() => {
       const section = document.querySelector(".file-diff");
       return {
-        topbar: document.querySelector(".topbar").getBoundingClientRect().bottom,
+        topbar: document.querySelector(".chrome").getBoundingClientRect().bottom,
         header: section.firstElementChild.shadowRoot.querySelector("[data-diffs-header]").getBoundingClientRect().top,
         section: section.getBoundingClientRect().top,
       };

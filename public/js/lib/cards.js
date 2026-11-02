@@ -124,7 +124,7 @@ const RAIL_MODES = [
   ["list", "List", "Every comment on this branch, grouped by who it waits on"],
 ];
 
-/** The rail's header: the unresolved count, and a switch between cards beside the code and the list. */
+/** The margin's header, shown in the bar under the top bar: the unresolved count, and a switch between cards beside the code and the list. */
 export function railHead(threads, { listing }) {
   const unresolved = threads.filter((t) => t.status !== "resolved");
   const older = unresolved.filter((t) => t.state === "outdated").length;
@@ -132,7 +132,7 @@ export function railHead(threads, { listing }) {
   const modes = RAIL_MODES.map(
     ([mode, label, title]) => `<button type="button" data-action="rail-mode" data-mode="${mode}" title="${title}" aria-pressed="${(mode === "list") === listing}">${label}</button>`,
   ).join("");
-  return `<div class="rail-head"><span>${unresolved.length} unresolved${olderLink}</span><div class="seg" role="group" aria-label="Show comments">${modes}</div></div>`;
+  return `<span>${unresolved.length} unresolved${olderLink}</span><div class="seg" role="group" aria-label="Show comments">${modes}</div>`;
 }
 
 /** The list view: every thread under the first group that takes it, with the `active` one open. */

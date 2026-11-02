@@ -252,7 +252,7 @@ test("an agent's reply shows up live, and one click on a closed card's Resolve c
   assert.deepEqual(await page.eval(markedRows), []);
   assert.equal(await page.eval(() => document.documentElement.classList.contains("rail-docked")), true, "the margin stays after its last thread");
   assert.equal(await diffWidth(), width, "so the diff does not reflow");
-  assert.match(await page.eval(() => document.querySelector("#rail .rail-head").textContent), /0 unresolved/);
+  assert.match(await page.eval(() => document.querySelector("#rail-head").textContent), /0 unresolved/);
 
   await page.eval(() => document.querySelector('.stack-row[data-branch="feat/a"]').click());
   await page.waitFor(() => !document.documentElement.classList.contains("rail-docked"), { what: "a branch with no threads to show no margin" });
@@ -380,20 +380,59 @@ test("the first comment's margin narrows the diff from split to unified, and the
   assert.deepEqual(page.errors, []);
 });
 
+test("c shows the margin before any comment and hides it, the choice is kept, and opening a thread brings it back", options, async () => {
+  const { page } = await openViewer();
+  const press = (key) => page.eval((k) => document.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true })), key);
+  const margin = () =>
+    page.eval(() => ({ docked: document.documentElement.classList.contains("rail-docked"), pressed: document.querySelector("#comments-btn").getAttribute("aria-pressed") }));
+  await page.waitFor(() => !document.querySelector("#comments-btn").hidden, { what: "the comments button" });
+  assert.deepEqual(await margin(), { docked: false, pressed: "false" });
+  await press("c");
+  assert.deepEqual(await margin(), { docked: true, pressed: "true" }, "c shows an empty margin");
+  assert.match(await page.eval(() => document.querySelector("#rail-head").textContent), /0 unresolved/);
+
+  await commentOnLine11(page);
+  await press("c");
+  assert.deepEqual(await margin(), { docked: false, pressed: "false" }, "c hides it, thread and all");
+  assert.equal(await page.eval(() => document.querySelector("#rail-head").hidden), true, "and its header in the bar");
+  await page.goto(await page.eval(() => location.href));
+  await page.waitFor(() => document.querySelector(".file-diff > *")?.shadowRoot?.querySelector("[data-dv-comment]"), { what: "the reloaded page's marked line" });
+  assert.deepEqual(await margin(), { docked: false, pressed: "false" }, "and it stays hidden after a reload");
+
+  await clickLineNumber(page, 11);
+  await page.waitFor(() => document.documentElement.classList.contains("rail-docked"), { what: "opening the thread to bring the margin back" });
+  assert.equal(await page.eval(() => document.querySelector("#rail .thread.expanded") !== null), true);
+  assert.deepEqual(page.errors, []);
+});
+
+test("the subbar puts the stack and files toggles over the sidebar and the comments toggle over the margin", options, async () => {
+  const { page } = await openViewer();
+  await commentOnLine11(page);
+  const edges = await page.eval(() => {
+    const box = (sel) => document.querySelector(sel).getBoundingClientRect().toJSON();
+    return { stack: box("#toggle-stack"), files: box("#toggle-files"), sidebar: box("#sidebar"), comments: box("#comments-btn"), rail: box("#rail"), subbar: box(".subbar"), topbar: box(".topbar") };
+  });
+  assert.equal(edges.subbar.top, edges.topbar.bottom, "the subbar sits right under the top bar");
+  for (const key of ["stack", "files"]) assert.ok(edges[key].right <= edges.sidebar.right, `${key} sits over the sidebar`);
+  assert.ok(Math.abs(edges.comments.right - edges.rail.right) <= 1, `the comments toggle ends where the margin does: ${JSON.stringify([edges.comments.right, edges.rail.right])}`);
+  const head = await page.eval(() => ({ inBar: document.querySelector(".subbar #rail-head:not([hidden])") !== null, text: document.querySelector("#rail-head").textContent, inRail: document.querySelector("#rail .seg") !== null }));
+  assert.deepEqual(head, { inBar: true, text: "1 unresolvedBeside codeList", inRail: false }, "the margin's count and switch sit in the bar, not atop the margin");
+});
+
 test("the rail's switch shows which of Beside code and List is on, and moves between them", options, async () => {
   const { page } = await openViewer();
   await commentOnLine11(page);
   const mode = () =>
     page.eval(() => ({
       listing: document.querySelector("#rail").classList.contains("listing"),
-      pressed: [...document.querySelectorAll('#rail [data-action="rail-mode"][aria-pressed="true"]')].map((b) => b.textContent),
+      pressed: [...document.querySelectorAll('#rail-head [data-action="rail-mode"][aria-pressed="true"]')].map((b) => b.textContent),
     }));
   assert.deepEqual(await mode(), { listing: false, pressed: ["Beside code"] });
-  await page.eval(() => document.querySelector('#rail [data-mode="list"]').click());
+  await page.eval(() => document.querySelector('#rail-head [data-mode="list"]').click());
   assert.deepEqual(await mode(), { listing: true, pressed: ["List"] });
-  await page.eval(() => document.querySelector('#rail [data-mode="list"]').click());
+  await page.eval(() => document.querySelector('#rail-head [data-mode="list"]').click());
   assert.deepEqual(await mode(), { listing: true, pressed: ["List"] }, "pressing the mode that is on keeps it");
-  await page.eval(() => document.querySelector('#rail [data-mode="margin"]').click());
+  await page.eval(() => document.querySelector('#rail-head [data-mode="margin"]').click());
   assert.deepEqual(await mode(), { listing: false, pressed: ["Beside code"] });
 });
 
@@ -643,9 +682,9 @@ test("a comment survives a commit elsewhere in the file, and goes outdated when 
   assert.match((await page.eval(railCards))[0].text, /from v1/);
   repo.commit("edit the line", { "src/app.js": lines(30, { 10: "const v10 = compute(10) + 1;" }) });
   await page.waitFor(() => document.querySelector("#version")?.textContent === "v3", { timeout: 10000, what: "v3" });
-  await page.waitFor(() => !document.documentElement.classList.contains("rail-docked") || document.querySelector("#rail .rail-head")?.innerText.includes("older"), { what: "the thread to leave the margin" });
+  await page.waitFor(() => !document.documentElement.classList.contains("rail-docked") || document.querySelector("#rail-head")?.innerText.includes("older"), { what: "the thread to leave the margin" });
   assert.deepEqual(await page.eval(markedRows), []);
-  await page.eval(() => document.querySelector("#comments-btn").click());
+  await page.eval(() => document.querySelector('#rail-head [data-mode="list"]').click());
   await page.waitFor(() => document.querySelector("#rail.listing .chip-outdated"), { what: "the outdated chip in the list" });
   assert.match(await page.eval(() => document.querySelector("#rail .now-reads").innerText), /Now reads: const v10 = compute\(10\) \+ 1;/);
 });

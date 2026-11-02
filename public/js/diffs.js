@@ -38,7 +38,7 @@ pre, [data-code], [data-content], [data-gutter-buffer], [data-diffs-header], [da
 [data-separator], [data-separator-wrapper], [data-separator-content] { background-color: var(--bg) !important; }
 [data-separator] { border-block: 1px dashed var(--border); }
 [data-separator-content] { color: var(--text-faint); font-size: 11px; }
-[data-diffs-header][data-sticky] { top: var(--topbar); z-index: 5; }
+[data-diffs-header][data-sticky] { top: var(--chrome); z-index: 5; }
 `;
 
 /* Layout */
@@ -249,7 +249,7 @@ export function setCollapsed(item, collapsed) {
     return;
   }
   // A file collapsed from its pinned header shrinks above the viewport; bring its header back, or the page lands somewhere in the files after it.
-  const pinned = collapsed && item.section.getBoundingClientRect().top < $(".topbar").getBoundingClientRect().bottom;
+  const pinned = collapsed && item.section.getBoundingClientRect().top < $(".chrome").getBoundingClientRect().bottom;
   applyCollapsed(item);
   if (pinned) item.section.scrollIntoView({ block: "start" });
 }

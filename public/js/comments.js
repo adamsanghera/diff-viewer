@@ -95,7 +95,34 @@ export function threadsInline() {
 }
 
 function railShown() {
-  return state.comments.enabled && (state.comments.listMode || (!threadsInline() && (state.comments.railHeld || placedThreads().length > 0)));
+  const { enabled, listMode, margin, railHeld } = state.comments;
+  if (!enabled) return false;
+  if (listMode) return true;
+  if (threadsInline() || margin === "hidden") return false;
+  return margin === "shown" || railHeld || placedThreads().length > 0;
+}
+
+function setMargin(margin) {
+  state.comments.margin = margin;
+  if (margin) localStorage.setItem("diffview.margin", margin);
+  else localStorage.removeItem("diffview.margin");
+}
+
+/** `c`: shows or hides the comment margin, and remembers the choice. */
+export function toggleMargin() {
+  if (threadsInline() && !state.comments.listMode) {
+    toast(state.comments.inline ? "Threads are inline; i puts them in the margin" : "The window is too narrow for the margin");
+    return;
+  }
+  const show = !railShown();
+  setMargin(show ? "shown" : "hidden");
+  if (!show) state.comments.listMode = false;
+  renderComments();
+}
+
+/** Opening a thread or making one brings back a margin hidden with c: the person wants to see it. */
+function revealMargin() {
+  if (state.comments.margin === "hidden") setMargin(null);
 }
 
 /** Pierre line annotations for a file's threads, when they show inline. */
@@ -225,7 +252,7 @@ function renderHeader() {
   button.hidden = false;
   $("#comments-count").textContent = unresolved ? String(unresolved) : "";
   button.classList.toggle("attention", threads.some((t) => t.waitingOn === "human" && t.status !== "resolved"));
-  button.setAttribute("aria-pressed", String(state.comments.listMode));
+  button.setAttribute("aria-pressed", String(railShown()));
   const pending = state.comments.pendingCount;
   $("#batch").hidden = pending === 0;
   $("#batch-count").textContent = `${pending} pending`;
@@ -258,20 +285,24 @@ export function scheduleLayout() {
 
 function renderRail() {
   const rail = $("#rail");
+  const head = $("#rail-head");
   rail.classList.toggle("listing", state.comments.listMode);
-  if (!railShown()) {
+  head.hidden = !railShown();
+  if (head.hidden) {
     rail.innerHTML = "";
+    head.innerHTML = "";
     return;
   }
   const threads = state.comments.threads;
+  head.innerHTML = railHead(threads, { listing: state.comments.listMode });
   if (state.comments.listMode) {
     rail.style.minHeight = "";
-    rail.innerHTML = railHead(threads, { listing: true }) + railList(threads, { active: state.comments.active, batching: batching() });
+    rail.innerHTML = railList(threads, { active: state.comments.active, batching: batching() });
     restoreReplies(rail);
     return;
   }
   const margin = placedThreads().filter((t) => t.kind !== "branch");
-  rail.innerHTML = railHead(threads, { listing: false }) + margin.map((t) => threadCard(t, { expanded: t.id === state.comments.active, batching: batching() })).join("");
+  rail.innerHTML = margin.map((t) => threadCard(t, { expanded: t.id === state.comments.active, batching: batching() })).join("");
   restoreReplies(rail);
   layoutRail();
 }
@@ -281,8 +312,6 @@ function layoutRail() {
   const rail = $("#rail");
   if (!railShown() || state.comments.listMode) return;
   const railTop = rail.getBoundingClientRect().top;
-  const head = rail.querySelector(".rail-head");
-  const minTop = head ? head.offsetHeight + CARD_GAP : 0;
   const items = [];
   for (const card of rail.querySelectorAll(".thread")) {
     const thread = state.comments.threads.find((t) => t.id === Number(card.dataset.thread));
@@ -294,7 +323,7 @@ function layoutRail() {
   items.sort((a, b) => a.target - b.target);
   if (!items.length) return;
   const pivot = Math.max(0, items.findIndex((i) => i.id === state.comments.active));
-  const tops = stackCards(items, { pivot, minTop, gap: CARD_GAP });
+  const tops = stackCards(items, { pivot, gap: CARD_GAP });
   items.forEach((item, i) => (item.card.style.top = `${tops[i]}px`));
   rail.style.minHeight = `${tops.at(-1) + items.at(-1).height}px`;
 }
@@ -311,6 +340,7 @@ function restoreReplies(container) {
 
 export function activate(id, { scroll = false } = {}) {
   state.comments.active = id;
+  if (id !== null) revealMargin();
   const thread = state.comments.threads.find((t) => t.id === id);
   if (threadsInline() && !state.comments.listMode) {
     for (const el of document.querySelectorAll("[data-inline-thread]")) {
@@ -542,6 +572,7 @@ async function submitComment() {
     });
     closeComposer();
     state.comments.active = id;
+    revealMargin();
     await loadComments();
     if (threadsInline()) commentHooks.rerenderFiles();
   } catch (err) {
@@ -734,7 +765,7 @@ export function initComments() {
     autosize(input);
     scheduleLayout();
   };
-  for (const container of [$("#rail"), $("#diffs"), $("#branch-threads")]) {
+  for (const container of [$("#rail"), $("#rail-head"), $("#diffs"), $("#branch-threads")]) {
     container.addEventListener("click", onThreadClick);
     container.addEventListener("keydown", onReplyKey);
     container.addEventListener("input", onReplyInput);
@@ -792,10 +823,7 @@ export function initComments() {
 
   $("#batch-send").addEventListener("click", () => act("/api/comments/batch/send"));
   $("#batch-discard").addEventListener("click", () => act("/api/comments/batch/discard", {}, { confirmText: "Discard every pending comment?" }));
-  $("#comments-btn").addEventListener("click", () => {
-    state.comments.listMode = !state.comments.listMode;
-    renderComments();
-  });
+  $("#comments-btn").addEventListener("click", toggleMargin);
   $("#version").addEventListener("click", toggleVersions);
   $("#versions-menu").addEventListener("click", (event) => {
     const row = event.target.closest(".version-row");

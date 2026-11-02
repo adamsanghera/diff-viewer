@@ -33,7 +33,7 @@ function onScreen(row, top) {
 
 /** The line a reader is on, as `{path, side, line}`, or null when no diff line is on screen. */
 function readingLine() {
-  const top = $(".topbar").getBoundingClientRect().bottom;
+  const top = $(".chrome").getBoundingClientRect().bottom;
   const active = state.comments.threads.find((t) => t.id === state.comments.active && t.kind === "lines");
   if (active) {
     const line = { path: active.path, side: active.side, line: active.startLine };

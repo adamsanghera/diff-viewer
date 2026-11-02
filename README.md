@@ -32,6 +32,7 @@ diffview --port 5000 --no-open   # first port to try, and no browser tab
 | `[` `]` | the branch below or above in the stack, with the Overview above the top |
 | `j` `k` | the next or previous file |
 | `s` | show or hide the stack |
+| `c` | show or hide the comment margin, even before the first comment; opening or making a thread brings it back |
 | `i` | threads in the margin, or inline under their lines |
 | `v` | mark the whole branch viewed (its own mark, kept until the branch's code changes), or take the mark away |
 | `f` | show or hide the branch's files |
@@ -61,7 +62,7 @@ diffview comments wait --after 41                  # returns the moment anything
 
 Agents reply and suggest that a thread is resolved. Only you resolve or reopen one, in the page, or with `--human` in a terminal. In a comment or reply box, Enter starts a new line, and Shift+Enter (or ⌘Enter) submits. The button under it says what submitting will do: **Comment** sends at once, **Add to batch** holds it as pending, invisible to agents, until you press **Send batch** at the top right, so an agent wakes once. Its chevron switches between the two, and the choice sticks until you switch back. No key sends the batch. Live reload waits while you write a comment, so lines never move under it.
 
-A comment follows its lines' text, not their numbers, so a rebase that moves them keeps it in place. When the lines themselves change, as when an agent edits them, the thread goes outdated: it leaves the margin for the list (the speech-bubble button), says what the lines now read, and links to the version it was made on. The version chip (`v3`) lists every version of a branch's diff that comments were made on.
+A comment follows its lines' text, not their numbers, so a rebase that moves them keeps it in place. When the lines themselves change, as when an agent edits them, the thread goes outdated: it leaves the margin for the list (**List** at the top of the margin), says what the lines now read, and links to the version it was made on. The version chip (`v3`) lists every version of a branch's diff that comments were made on.
 
 ### Descriptions
 
