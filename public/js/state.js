@@ -76,5 +76,8 @@ export function autosize(textarea) {
 }
 
 /** The page side names Pierre uses for diff sides. */
+// How far under the bars a file scrolled to sits. Keep in step with .file-diff's scroll-margin-top in styles.css.
+export const FILE_SCROLL_MARGIN = 12;
+
 export const PIERRE_SIDE = { new: "additions", old: "deletions" };
 export const SIDE_OF = { additions: "new", deletions: "old" };

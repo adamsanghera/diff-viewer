@@ -4,7 +4,7 @@ import { escapeHtml } from "./lib/format.js";
 import { holdReadingLine } from "./hold.js";
 import { counted, extensionOf, filters, HIDE_CHOICES, hiddenSummary, KIND_CHOICES, rendered, shownSize } from "./filters.js";
 import { buildTree, stackRows } from "./lib/tree.js";
-import { $, root, state } from "./state.js";
+import { $, FILE_SCROLL_MARGIN, root, state } from "./state.js";
 
 const STATUS_MARKS = { added: "A", deleted: "D", modified: "M", renamed: "R", copied: "C" };
 const CHEVRON = '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4"/></svg>';
@@ -190,4 +190,42 @@ export function renderTree() {
   };
   const empty = state.overview ? "Pick a branch to see its files" : query ? "No matching files" : "No changes";
   $("#tree").innerHTML = shown.length ? renderNode(buildTree(shown.map((f) => f.path))) : `<div class="tree-empty">${empty}</div>`;
+  markFileInView();
+}
+
+/* The file being read */
+
+// The index of the file marked as being read, so the list scrolls to it only when it changes.
+let markedIndex = null;
+
+/** The file under the bars: the last one whose top has reached them, else the first. Its index, or null with no files. */
+function fileInView() {
+  const reached = $(".chrome").getBoundingClientRect().bottom + FILE_SCROLL_MARGIN;
+  let current = document.querySelector(".file-diff");
+  for (const section of document.querySelectorAll(".file-diff")) {
+    if (section.getBoundingClientRect().top > reached) break;
+    current = section;
+  }
+  return current ? Number(current.id.slice("file-".length)) : null;
+}
+
+/** Scrolls the files panel, not the page, just enough to show `link`. */
+function showInPanel(link) {
+  const panel = $("#files-panel");
+  const row = link.getBoundingClientRect();
+  const view = panel.getBoundingClientRect();
+  if (row.top < view.top) panel.scrollTop -= view.top - row.top;
+  else if (row.bottom > view.bottom) panel.scrollTop += row.bottom - view.bottom;
+}
+
+/** Marks the file being read in the list, and keeps it in sight there when it changes. */
+export function markFileInView() {
+  const index = fileInView();
+  const changed = index !== markedIndex;
+  markedIndex = index;
+  for (const link of $("#tree").querySelectorAll("a.file")) {
+    const current = Number(link.dataset.index) === index;
+    link.classList.toggle("current", current);
+    if (current && changed) showInPanel(link);
+  }
 }

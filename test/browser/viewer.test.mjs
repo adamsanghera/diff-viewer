@@ -170,6 +170,24 @@ test("a file's header stays pinned under the top bar while its diff scrolls, and
   assert.deepEqual(page.errors, []);
 });
 
+test("the file list marks the file being read, under the bars, as the page scrolls", options, async () => {
+  const { repo, page } = await openViewer();
+  await page.waitFor(() => document.querySelector("#live").dataset.state === "on", { what: "live reload to connect" });
+  const long = (name) => Array.from({ length: 200 }, (_, i) => `export const ${name}${i} = ${i};\n`).join("");
+  repo.commit("long", { "src/app.js": long("a"), "src/zoo.js": long("z") });
+  await page.waitFor(() => document.querySelectorAll(".file-diff").length === 2, { timeout: 10000, what: "two files" });
+  const marked = () => page.eval(() => [...document.querySelectorAll("#tree a.file.current")].map((a) => a.querySelector(".file-name").textContent));
+  await page.waitFor(() => document.querySelector("#tree a.file.current"), { what: "a file marked" });
+  assert.deepEqual(await marked(), ["app.js"], "at the top, the first file");
+
+  await page.eval(() => window.scrollTo(0, document.querySelectorAll(".file-diff")[1].getBoundingClientRect().top + scrollY + 300));
+  await page.waitFor(() => document.querySelector("#tree a.file.current .file-name")?.textContent === "zoo.js", { what: "the second file marked" });
+  assert.deepEqual(await marked(), ["zoo.js"], "one file at a time");
+
+  await page.eval(() => document.querySelector("#tree a.file").click());
+  await page.waitFor(() => document.querySelector("#tree a.file.current .file-name")?.textContent === "app.js", { what: "jumping back to mark the first again" });
+});
+
 test("Auto shows split diffs in a wide window and one column in a narrow one", options, async () => {
   const { page } = await openViewer();
   // Pierre marks its <pre> "split" or, for one column, "single".

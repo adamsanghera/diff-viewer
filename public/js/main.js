@@ -21,7 +21,7 @@ import { holdHooks } from "./hold.js";
 import { escapeHtml } from "./lib/format.js";
 import { reportLoad } from "./perf.js";
 import { installShortcuts } from "./shortcuts.js";
-import { renderStack, renderTree, toggleFilesPanel, toggleFilterMenu, toggleStackPanel } from "./sidebar.js";
+import { markFileInView, renderStack, renderTree, toggleFilesPanel, toggleFilterMenu, toggleStackPanel } from "./sidebar.js";
 import { $, getJson, state, toast } from "./state.js";
 import { applyTheme, cycleTheme, PREFERS_DARK } from "./theme.js";
 
@@ -219,6 +219,13 @@ function onResize() {
   }
   wasInline = inline;
   scheduleLayout();
+  markFileInView();
+}
+
+let markFrame = 0;
+function onScroll() {
+  cancelAnimationFrame(markFrame);
+  markFrame = requestAnimationFrame(markFileInView);
 }
 
 async function main() {
@@ -298,6 +305,7 @@ async function main() {
     }
   });
   new ResizeObserver(onResize).observe($("#main"));
+  addEventListener("scroll", onScroll, { passive: true });
   addEventListener("popstate", () => show(readLocation(), { push: false }));
   try {
     await loadStack();

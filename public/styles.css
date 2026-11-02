@@ -390,6 +390,8 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
   text-decoration: none;
 }
 .file:hover { background: var(--hover); }
+/* The file being read, under the bars. */
+.file.current { background: var(--bg-control); box-shadow: inset 2px 0 0 var(--accent); }
 .file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status { flex: none; width: 14px; font: 600 var(--text-xs) var(--mono); text-align: center; }
 .status-added { color: var(--success); }
@@ -407,6 +409,7 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 .branch-meta { margin: 0 0 18px; color: var(--text-soft); font-size: var(--text-md); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .branch-meta strong { font: var(--weight-medium) var(--text-sm) var(--mono); color: var(--text); padding: 2px 6px; border-radius: var(--radius-sm); background: var(--bg-control); }
 .branch-meta .faint { font: var(--text-sm) var(--mono); }
+/* Keep the 12px in step with FILE_SCROLL_MARGIN in state.js. */
 .file-diff { margin-bottom: 16px; scroll-margin-top: calc(var(--chrome) + 12px); }
 .file-diff > diffs-container { display: block; border: var(--hairline) solid var(--border-strong); border-radius: var(--radius-sm); overflow: clip; background: var(--bg); }
 .file-placeholder { padding: 10px 14px; border: var(--hairline) solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg); font-size: var(--text-md); }

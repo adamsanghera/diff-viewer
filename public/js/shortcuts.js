@@ -2,15 +2,13 @@
 import { toggleBranchViewed, toggleInline, toggleMargin } from "./comments.js";
 import { stackRows } from "./lib/tree.js";
 import { hasOverview, toggleFilesPanel, toggleStackPanel } from "./sidebar.js";
-import { $, state } from "./state.js";
-
-// A file scrolled to sits its scroll-margin, 12px, under the bars; j and k treat one there as the current file.
-const FILE_TOP_SLACK = 12;
+import { $, FILE_SCROLL_MARGIN, state } from "./state.js";
 
 function moveFile(step) {
   const sections = [...document.querySelectorAll(".file-diff")];
   const pinnedBottom = $(".chrome").getBoundingClientRect().bottom;
-  const current = sections.findIndex((s) => s.getBoundingClientRect().top > pinnedBottom + FILE_TOP_SLACK);
+  // A file scrolled to sits exactly FILE_SCROLL_MARGIN under the bars; j and k treat one there as the current file.
+  const current = sections.findIndex((s) => s.getBoundingClientRect().top > pinnedBottom + FILE_SCROLL_MARGIN);
   const target = sections[Math.max(0, Math.min(sections.length - 1, (current === -1 ? sections.length : current) + (step > 0 ? 0 : -2)))];
   target?.scrollIntoView({ block: "start" });
 }
