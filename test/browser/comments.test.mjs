@@ -245,9 +245,17 @@ test("an agent's reply shows up live, and one click on a closed card's Resolve c
   assert.deepEqual(await page.eval(markedRows), ["11:turn"]);
   await page.eval(() => document.querySelector("#rail textarea.reply").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
   assert.equal(await page.eval(() => document.querySelector("#rail .thread.expanded")), null, "Escape closes the card");
+  const diffWidth = () => page.eval(() => document.querySelector("#diffs").clientWidth);
+  const width = await diffWidth();
   await page.eval(() => document.querySelector('#rail .thread-head [data-action="resolved"]').click());
-  await page.waitFor(() => !document.documentElement.classList.contains("rail-docked"), { what: "the rail to close" });
+  await page.waitFor(() => !document.querySelector("#rail .thread"), { what: "the card to go" });
   assert.deepEqual(await page.eval(markedRows), []);
+  assert.equal(await page.eval(() => document.documentElement.classList.contains("rail-docked")), true, "the margin stays after its last thread");
+  assert.equal(await diffWidth(), width, "so the diff does not reflow");
+  assert.match(await page.eval(() => document.querySelector("#rail .rail-head").textContent), /0 unresolved/);
+
+  await page.eval(() => document.querySelector('.stack-row[data-branch="feat/a"]').click());
+  await page.waitFor(() => !document.documentElement.classList.contains("rail-docked"), { what: "a branch with no threads to show no margin" });
 });
 
 test("a closed card deletes in two clicks from its ⋯ menu, which a click elsewhere closes", options, async () => {
@@ -531,7 +539,7 @@ test("the agent's description shows above the diff, and selected text in it take
   agent.close();
   fs.writeFileSync(file, `---\ntitle: Share compute()\n---\n${body.replace("Callers repeat the doubling logic.", "Two callers repeat the doubling logic.")}`);
   await page.waitFor(() => document.querySelector("#description-body")?.textContent.includes("Two callers"), { what: "the edited file to reach the page" });
-  await page.waitFor(() => !document.documentElement.classList.contains("rail-docked"), { what: "the outdated thread to leave the margin" });
+  await page.waitFor(() => !document.querySelector("#rail .thread"), { what: "the outdated thread to leave the margin" });
   assert.equal(await page.eval(() => CSS.highlights.get("dv-description-open")?.size ?? 0), 0);
 });
 

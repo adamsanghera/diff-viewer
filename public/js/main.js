@@ -117,6 +117,7 @@ async function show(branch, { push = true, version = null } = {}) {
   state.version = version === null ? null : { seq: version };
   state.comments.active = null;
   state.comments.listMode = false;
+  state.comments.railHeld = false;
   if (push) writeLocation();
   renderStack();
   try {

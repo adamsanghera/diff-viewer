@@ -34,6 +34,8 @@ export const state = {
     branchViewed: null,
     active: null,
     listMode: false,
+    /** Set once the margin has held a thread on the branch shown, so resolving the last one does not take the margin away and reflow the diff. */
+    railHeld: false,
     inline: localStorage.getItem("diffview.threads") === "inline",
     composer: null,
     replyText: new Map(),

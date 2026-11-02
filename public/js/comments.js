@@ -94,7 +94,7 @@ export function threadsInline() {
 }
 
 function railShown() {
-  return state.comments.enabled && (state.comments.listMode || (!threadsInline() && placedThreads().length > 0));
+  return state.comments.enabled && (state.comments.listMode || (!threadsInline() && (state.comments.railHeld || placedThreads().length > 0)));
 }
 
 /** Pierre line annotations for a file's threads, when they show inline. */
@@ -203,6 +203,7 @@ export async function loadComments() {
 export function renderComments({ annotationsChanged = false } = {}) {
   if (!state.comments.enabled) return;
   renderHeader();
+  if (placedThreads().length) state.comments.railHeld = true;
   root.classList.toggle("rail-docked", railShown());
   if (annotationsChanged) commentHooks.rerenderFiles();
   for (const item of state.views) {
