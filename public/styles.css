@@ -230,9 +230,11 @@ html:not(.no-stack) #toggle-stack, html:not(.no-files) #toggle-files { backgroun
 .no-stack #stack-panel, .no-files #files-panel { display: none; }
 
 /* The stack and the files scroll on their own, so a long file list never pushes the stack out of view. */
+/* Its z-index lifts its menus over the diffs' pinned file headers, under the top bar. */
 .sidebar {
   position: sticky;
   top: var(--topbar);
+  z-index: 10;
   height: calc(100vh - var(--topbar));
   display: flex;
   flex-direction: column;
@@ -335,7 +337,7 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 #filter::-webkit-search-cancel-button { display: none; }
 .file-tools { display: flex; gap: 6px; align-items: center; margin: 0 2px 8px; }
 .file-tools .filter-wrap { flex: 1; margin: 0; }
-.filter-btn { flex: none; width: 28px; height: 28px; border: var(--hairline) solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg); }
+.filter-btn { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: var(--hairline) solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg); }
 .filter-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 .hidden-summary { display: flex; align-items: center; gap: 8px; margin: 0 6px 8px; font-size: var(--text-sm); color: var(--text-soft); }
 .hidden-summary[hidden] { display: none; }
@@ -555,7 +557,7 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 /* File headers: viewed, comment, open; and the file list's viewed marks */
 
 .file-controls { display: inline-flex; align-items: center; gap: 12px; font-size: var(--text-sm); }
-.collapse-toggle { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 2px; border-radius: var(--radius-xs); color: var(--text-soft); }
+.collapse-toggle { display: inline-grid; place-items: center; width: 20px; height: 20px; padding: 0; margin-right: 2px; border-radius: var(--radius-xs); color: var(--text-soft); }
 .collapse-toggle:hover { background: var(--hover); color: var(--text); }
 .collapse-toggle .icon { width: 14px; height: 14px; transition: transform 0.12s; }
 .collapse-toggle[aria-expanded="false"] .icon { transform: rotate(-90deg); }

@@ -126,6 +126,50 @@ test("long lines wrap instead of scrolling sideways", options, async () => {
   assert.ok(rows > 1, `the long line wraps onto ${rows} rows`);
 });
 
+test("a file's header stays pinned under the top bar while its diff scrolls, and collapsing it there keeps the page on that file", options, async () => {
+  const { repo, page } = await openViewer();
+  await page.waitFor(() => document.querySelector("#live").dataset.state === "on", { what: "live reload to connect" });
+  const long = (name) => Array.from({ length: 200 }, (_, i) => `export const ${name}${i} = ${i};\n`).join("");
+  repo.commit("long", { "src/app.js": long("a"), "src/zoo.js": long("z") });
+  await page.waitFor(() => document.querySelectorAll(".file-diff").length === 2 && document.querySelector(".file-diff > *").shadowRoot.textContent.includes("a199"), {
+    timeout: 10000,
+    what: "two long files",
+  });
+  const tops = () =>
+    page.eval(() => {
+      const section = document.querySelector(".file-diff");
+      return {
+        topbar: document.querySelector(".topbar").getBoundingClientRect().bottom,
+        header: section.firstElementChild.shadowRoot.querySelector("[data-diffs-header]").getBoundingClientRect().top,
+        section: section.getBoundingClientRect().top,
+      };
+    });
+  await page.eval(() => window.scrollTo(0, document.querySelector(".file-diff").getBoundingClientRect().top + scrollY + 1500));
+  const scrolled = await tops();
+  assert.ok(scrolled.section < scrolled.topbar, `the file's top is scrolled past: ${JSON.stringify(scrolled)}`);
+  assert.equal(scrolled.header, scrolled.topbar, "its header sits right under the top bar");
+  const covered = await page.eval(() => {
+    document.querySelector("#filter-btn").click();
+    const menu = document.querySelector("#filter-menu").getBoundingClientRect();
+    const second = document.querySelectorAll(".file-diff > *")[1].shadowRoot.querySelector("[data-diffs-header]");
+    scrollBy(0, second.getBoundingClientRect().top - (menu.top + menu.bottom) / 2);
+    const under = [];
+    for (let y = menu.top + 2; y < menu.bottom - 2; y += 4) {
+      const hit = document.elementFromPoint(menu.right - 4, y);
+      if (!hit?.closest("#filter-menu")) under.push(hit?.tagName);
+    }
+    document.querySelector("#filter-btn").click();
+    return under;
+  });
+  assert.deepEqual(covered, [], "the filter menu draws over the files' headers");
+  await page.eval(() => window.scrollTo(0, document.querySelector(".file-diff").getBoundingClientRect().top + scrollY + 1500));
+
+  await page.eval(() => document.querySelector(".file-diff > *").querySelector(".collapse-toggle").click());
+  const collapsed = await tops();
+  assert.ok(collapsed.header >= collapsed.topbar && collapsed.header < collapsed.topbar + 40, `the collapsed file's header is back in view: ${JSON.stringify(collapsed)}`);
+  assert.deepEqual(page.errors, []);
+});
+
 test("Auto shows split diffs in a wide window and one column in a narrow one", options, async () => {
   const { page } = await openViewer();
   // Pierre marks its <pre> "split" or, for one column, "single".

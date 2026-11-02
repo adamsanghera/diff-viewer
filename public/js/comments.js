@@ -570,7 +570,6 @@ async function setViewed(item, viewed) {
     if (!viewed) delete state.comments.viewed[item.file.path];
     commentHooks.setCollapsed(item, viewed);
     commentHooks.renderTree();
-    if (viewed) item.section.scrollIntoView({ block: "nearest" });
   } catch (err) {
     toast(err.message);
   }
