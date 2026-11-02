@@ -250,6 +250,35 @@ test("an agent's reply shows up live, and one click on a closed card's Resolve c
   assert.deepEqual(await page.eval(markedRows), []);
 });
 
+test("a closed card deletes in two clicks from its ⋯ menu, which a click elsewhere closes", options, async () => {
+  const { page } = await openViewer();
+  await commentOnLine11(page);
+  await page.eval(() => document.querySelector("#rail textarea.reply").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  const menu = () =>
+    page.eval(() => {
+      const card = document.querySelector("#rail .thread");
+      const box = card.querySelector(".thread-menu");
+      const r = box.getBoundingClientRect();
+      return { shown: !box.hidden, expanded: card.classList.contains("expanded"), onTop: !box.hidden && document.elementFromPoint(r.left + 8, r.bottom - 6)?.closest(".thread-menu") === box };
+    });
+  const offCenter = await page.eval(() => {
+    const button = document.querySelector('#rail [data-action="thread-menu"]').getBoundingClientRect();
+    const dots = document.querySelector("#rail .thread-more-btn path").getBoundingClientRect();
+    return [dots.left + dots.width / 2 - (button.left + button.width / 2), dots.top + dots.height / 2 - (button.top + button.height / 2)].map((d) => Math.round(d) + 0);
+  });
+  assert.deepEqual(offCenter, [0, 0], "the dots sit in the middle of their button");
+  await page.eval(() => document.querySelector('#rail [data-action="thread-menu"]').click());
+  assert.deepEqual(await menu(), { shown: true, expanded: false, onTop: true }, "the menu opens over the page without opening the card");
+  await page.eval(() => document.querySelector("main").click());
+  assert.equal((await menu()).shown, false, "a click elsewhere closes it");
+
+  await page.eval(() => document.querySelector('#rail [data-action="thread-menu"]').click());
+  await page.eval(() => document.querySelector('#rail .thread-menu [data-action="delete-thread"]').click());
+  await page.waitFor(() => !document.querySelector("#rail .thread"), { what: "the thread to go" });
+  assert.deepEqual(await page.eval(markedRows), []);
+  assert.deepEqual(page.errors, []);
+});
+
 test("with Add to batch chosen from the button's chevron, ⌘Enter only adds to the batch, which stays hidden from agents until Send batch at the top right", options, async () => {
   const { page, home, started } = await openViewer();
   const agent = await openStore(home);

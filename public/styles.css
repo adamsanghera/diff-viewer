@@ -454,8 +454,19 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 .thread[data-status="resolved"] { opacity: 0.75; }
 .thread-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; font-size: var(--text-sm); color: var(--text-faint); }
 .thread-id { font-variant-numeric: tabular-nums; }
-.thread-resolve { margin-left: auto; height: 20px; padding: 0 8px; border-radius: var(--radius-xs); font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--text-soft); }
+.thread-head-end { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
+.thread-resolve { height: 20px; padding: 0 8px; border-radius: var(--radius-xs); font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--text-soft); }
 .thread-resolve:hover { background: var(--success-soft); color: var(--success); }
+.thread-more { position: relative; display: inline-flex; }
+.thread-more-btn { display: inline-grid; place-items: center; width: 22px; height: 20px; padding: 0; border-radius: var(--radius-xs); color: var(--text-faint); }
+.thread-more-btn:hover, .thread-more-btn[aria-expanded="true"] { background: var(--bg-control); color: var(--text); }
+.icon-dots { stroke-width: 2.5; }
+.thread-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 40; min-width: 150px; padding: 4px; border: var(--hairline) solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg); box-shadow: var(--shadow-md); }
+.thread-menu[hidden] { display: none; }
+.thread-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border-radius: var(--radius-xs); font-size: var(--text-md); color: var(--danger); white-space: nowrap; }
+.thread-menu button:hover { background: var(--hover); }
+/* Over the cards stacked below it, which come later in the rail. */
+.thread.menu-open { z-index: 3; }
 .thread-where { font-family: var(--mono); font-size: var(--text-sm); color: var(--text-soft); }
 .chip-suggested { color: var(--state-suggested); }
 .chip-turn { color: var(--state-turn); }

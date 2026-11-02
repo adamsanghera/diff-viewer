@@ -69,6 +69,16 @@ function openBatchMenu(chevron) {
   }
 }
 
+/** Opens a card's ⋯ menu, closing any other, or closes them all with null. */
+function openThreadMenu(button) {
+  for (const other of document.querySelectorAll('[data-action="thread-menu"]')) {
+    const open = other === button && other.getAttribute("aria-expanded") !== "true";
+    other.setAttribute("aria-expanded", String(open));
+    other.nextElementSibling.hidden = !open;
+    other.closest(".thread").classList.toggle("menu-open", open);
+  }
+}
+
 /* Which threads show where */
 
 /** Threads that sit at their lines on the version shown: unresolved and not outdated. */
@@ -690,8 +700,11 @@ export function initComments() {
       commentHooks.rerenderFiles();
     } else if (action === "resolved" || action === "open") {
       act(`/api/comments/${id}/status`, { status: action, pending: action === "open" && batching() });
+    } else if (action === "thread-menu") {
+      openThreadMenu(event.target.closest("[data-action]"));
     } else if (action === "delete-thread") {
-      act(`/api/comments/${id}/delete`, {}, { confirmText: "Delete this thread permanently?" });
+      openThreadMenu(null);
+      act(`/api/comments/${id}/delete`);
     } else if (action === "delete-message") {
       act(`/api/comments/${id}/messages/${event.target.closest("[data-message]").dataset.message}/delete`, {}, { confirmText: "Delete this message permanently?" });
     } else if (action === "version") {
@@ -738,11 +751,14 @@ export function initComments() {
     } else {
       openBatchMenu(null);
     }
+    if (!event.target.closest?.(".thread-more")) openThreadMenu(null);
     if (submit?.closest("#composer")) submitComment();
     else if (submit) sendReply(submit.closest(".thread").querySelector("textarea.reply"));
   });
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") openBatchMenu(null);
+    if (event.key !== "Escape") return;
+    openBatchMenu(null);
+    openThreadMenu(null);
   });
   $("#composer-text").addEventListener("keydown", (event) => {
     if (isSubmitKey(event)) {

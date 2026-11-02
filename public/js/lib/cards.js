@@ -37,9 +37,10 @@ function threadChips(t) {
 }
 
 /**
- * One message. Its delete button shows on open cards; on the first message it
- * deletes the whole thread. A pending reply is badged, unless the whole thread
- * is pending and its header already says so.
+ * One message. A reply's delete button shows on open cards; the first message
+ * has none, since deleting it is deleting the thread (the header's menu). A
+ * pending reply is badged, unless the whole thread is pending and its header
+ * already says so.
  */
 function messageItem(m, first, threadPending) {
   const time = Date.parse(m.sentAt ?? m.createdAt);
@@ -47,9 +48,7 @@ function messageItem(m, first, threadPending) {
   const badge =
     (m.authorKind === "agent" ? `<span class="badge"${session}>agent</span>` : "") +
     (m.pending && !threadPending ? '<span class="badge badge-pending" title="In your batch. Agents see it after you send.">pending</span>' : "");
-  const remove = first
-    ? '<button class="message-delete" type="button" data-action="delete-thread" title="Delete this thread permanently">×</button>'
-    : `<button class="message-delete" type="button" data-action="delete-message" data-message="${m.id}" title="Delete this message permanently">×</button>`;
+  const remove = first ? "" : `<button class="message-delete" type="button" data-action="delete-message" data-message="${m.id}" title="Delete this message permanently">×</button>`;
   return `<li class="message" data-kind="${m.authorKind}">
     <div class="message-meta"><span class="author">${escapeHtml(m.author)}</span>${badge}<span class="when" title="${escapeHtml(new Date(time).toLocaleString())}">${ago(time)} · v${m.versionSeq}</span>${remove}</div>
     <div class="message-body">${m.bodyHtml}</div>
@@ -62,12 +61,20 @@ function resolveButton(t) {
   return '<button class="thread-resolve" type="button" data-action="resolved" title="Resolve this thread">✓ Resolve</button>';
 }
 
-/** The open card's reply box and actions. A pending thread is a draft, so it can only be replied to or deleted. */
+const DOTS_ICON = '<svg class="icon icon-dots" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8h.01M8 8h.01M12.5 8h.01"/></svg>';
+const TRASH_ICON = '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.5 8.5h6l.5-8.5"/></svg>';
+
+/** The ⋯ menu at the top right of every card. Picking Delete thread is the confirmation, so deleting takes two clicks without opening the card. */
+function threadMenu() {
+  return `<span class="thread-more"><button class="thread-more-btn" type="button" data-action="thread-menu" aria-haspopup="menu" aria-expanded="false" title="More">${DOTS_ICON}</button><span class="thread-menu" role="menu" hidden><button type="button" role="menuitem" data-action="delete-thread">${TRASH_ICON}Delete thread</button></span></span>`;
+}
+
+/** The open card's reply box and actions. */
 function threadControls(t, batching) {
   const placeholder = t.status === "suggested" ? "Reply and reopen…" : "Reply…";
   const reopen = t.pending || t.status === "open" ? "" : '<button class="btn" type="button" data-action="open">Reopen</button>';
   return `<textarea class="reply" rows="1" placeholder="${placeholder}" aria-label="Reply"></textarea>
-    <div class="thread-actions"><button class="btn btn-danger" type="button" data-action="delete-thread" title="Delete this thread permanently">Delete</button><div class="thread-actions-end">${submitButton(batching, { now: "Reply", primary: false })}${reopen}</div></div>`;
+    <div class="thread-actions"><div class="thread-actions-end">${submitButton(batching, { now: "Reply", primary: false })}${reopen}</div></div>`;
 }
 
 /** For an outdated thread: what its lines became, and a link to the version it was made on. */
@@ -104,7 +111,7 @@ export function threadCard(t, { expanded = false, batching = false, listed = fal
   const where = listed ? `<span class="thread-where">${escapeHtml(anchorLabel(t))}</span>` : "";
   const lines = listed || t.state === "outdated" || t.kind === "description" ? excerpt(t) : "";
   return `<section class="thread${expanded ? " expanded" : ""}" data-thread="${t.id}" data-status="${t.status}" data-pending="${t.pending}" data-turn="${t.waitingOn ?? ""}">
-    <header class="thread-head"><span class="thread-id">#${t.id}</span>${where}${threadChips(t)}${resolveButton(t)}</header>
+    <header class="thread-head"><span class="thread-id">#${t.id}</span>${where}${threadChips(t)}<span class="thread-head-end">${resolveButton(t)}${threadMenu()}</span></header>
     ${lines}
     ${nowReads(t)}
     <ol class="messages">${items.join("")}</ol>
