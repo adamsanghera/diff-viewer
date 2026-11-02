@@ -188,6 +188,37 @@ test("the file list marks the file being read, under the bars, as the page scrol
   await page.waitFor(() => document.querySelector("#tree a.file.current .file-name")?.textContent === "app.js", { what: "jumping back to mark the first again" });
 });
 
+test("a folder's chevron folds it in the file list, a search still finds what it holds, and a folded folder stands in for the file being read", options, async () => {
+  const { repo, page } = await openViewer();
+  await page.waitFor(() => document.querySelector("#live").dataset.state === "on", { what: "live reload to connect" });
+  repo.commit("web", { "web/zoo.js": "export const zoo = 1;\n" });
+  await page.waitFor(() => document.querySelectorAll("#tree a.file").length === 2, { timeout: 10000, what: "two files listed" });
+  const tree = () =>
+    page.eval(() => ({
+      shown: [...document.querySelectorAll("#tree a.file")].filter((a) => a.offsetParent).map((a) => a.querySelector(".file-name").textContent),
+      current: ((el) => el?.querySelector(".file-name")?.textContent ?? el?.textContent.trim())(document.querySelector("#tree .current")),
+      expanded: document.querySelector('#tree [data-dir="src"]').getAttribute("aria-expanded"),
+    }));
+  assert.deepEqual(await tree(), { shown: ["app.js", "zoo.js"], current: "app.js", expanded: "true" });
+
+  await page.eval(() => document.querySelector('#tree [data-dir="src"]').click());
+  assert.deepEqual(await tree(), { shown: ["zoo.js"], current: "src", expanded: "false" }, "folding src hides app.js, and src stands in for it as the file being read");
+  await page.eval(() => {
+    const filter = document.querySelector("#filter");
+    filter.value = "app";
+    filter.dispatchEvent(new Event("input"));
+  });
+  assert.deepEqual((await tree()).shown, ["app.js"], "a search shows matches inside folded folders");
+  await page.eval(() => {
+    const filter = document.querySelector("#filter");
+    filter.value = "";
+    filter.dispatchEvent(new Event("input"));
+  });
+  assert.deepEqual((await tree()).shown, ["zoo.js"], "and src is folded again after");
+  await page.eval(() => document.querySelector('#tree [data-dir="src"]').click());
+  assert.deepEqual((await tree()).shown, ["app.js", "zoo.js"]);
+});
+
 test("Auto shows split diffs in a wide window and one column in a narrow one", options, async () => {
   const { page } = await openViewer();
   // Pierre marks its <pre> "split" or, for one column, "single".

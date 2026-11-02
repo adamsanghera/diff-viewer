@@ -160,6 +160,17 @@ export function toggleFilterMenu(open = $("#filter-menu").hidden) {
 
 /* The branch's files */
 
+// Folders the person folded in the list, by branch and path, so re-renders (live reload, filters) keep them folded.
+const foldedDirs = new Set();
+const foldKey = (dir) => `${state.branch}\0${dir}`;
+
+/** Folds or unfolds a folder in the file list. */
+export function toggleDir(dir) {
+  const key = foldKey(dir);
+  if (!foldedDirs.delete(key)) foldedDirs.add(key);
+  renderTree();
+}
+
 export function renderTree() {
   const all = state.diff?.files ?? [];
   const summary = hiddenSummary(all);
@@ -174,10 +185,13 @@ export function renderTree() {
   const listed = all.filter(counted);
   const viewed = listed.filter((f) => viewedState(f) === "viewed").length;
   $("#files-meta").textContent = listed.length ? (state.comments.enabled ? `${viewed}/${listed.length} viewed` : `${listed.length}`) : "";
-  const renderNode = (node) => {
+  const renderNode = (node, prefix = "") => {
     const items = [];
     for (const [name, child] of node.dirs) {
-      items.push(`<li><span class="dir-label">${CHEVRON}<span>${escapeHtml(name)}</span></span>${renderNode(child)}</li>`);
+      const dir = prefix + name;
+      // A search shows every match, folded or not.
+      const folded = !query && foldedDirs.has(foldKey(dir));
+      items.push(`<li class="dir${folded ? " folded" : ""}"><button type="button" class="dir-label" data-dir="${escapeHtml(dir)}" aria-expanded="${!folded}">${CHEVRON}<span>${escapeHtml(name)}</span></button>${renderNode(child, `${dir}/`)}</li>`);
     }
     for (const path of node.files) {
       const f = byPath.get(path);
@@ -218,14 +232,22 @@ function showInPanel(link) {
   else if (row.bottom > view.bottom) panel.scrollTop += row.bottom - view.bottom;
 }
 
-/** Marks the file being read in the list, and keeps it in sight there when it changes. */
+/** The row that shows `link`: the link itself, or the label of the outermost folded folder holding it. */
+function shownRow(link) {
+  let row = link;
+  for (let folder = link.closest("li.folded"); folder; folder = folder.parentElement.closest("li.folded")) row = folder.querySelector(":scope > .dir-label");
+  return row;
+}
+
+/** Marks the file being read in the list (or the folded folder it is in), and keeps it in sight there when it changes. */
 export function markFileInView() {
   const index = fileInView();
   const changed = index !== markedIndex;
   markedIndex = index;
-  for (const link of $("#tree").querySelectorAll("a.file")) {
-    const current = Number(link.dataset.index) === index;
-    link.classList.toggle("current", current);
-    if (current && changed) showInPanel(link);
-  }
+  for (const row of $("#tree").querySelectorAll(".current")) row.classList.remove("current");
+  const link = $("#tree").querySelector(`a.file[data-index="${index}"]`);
+  if (!link) return;
+  const row = shownRow(link);
+  row.classList.add("current");
+  if (changed) showInPanel(row);
 }

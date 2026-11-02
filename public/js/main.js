@@ -21,7 +21,7 @@ import { holdHooks } from "./hold.js";
 import { escapeHtml } from "./lib/format.js";
 import { reportLoad } from "./perf.js";
 import { installShortcuts } from "./shortcuts.js";
-import { markFileInView, renderStack, renderTree, toggleFilesPanel, toggleFilterMenu, toggleStackPanel } from "./sidebar.js";
+import { markFileInView, renderStack, renderTree, toggleDir, toggleFilesPanel, toggleFilterMenu, toggleStackPanel } from "./sidebar.js";
 import { $, getJson, state, toast } from "./state.js";
 import { applyTheme, cycleTheme, PREFERS_DARK } from "./theme.js";
 
@@ -291,6 +291,8 @@ async function main() {
     if (event.target.closest("[data-branch-viewed]")) toggleBranchViewed();
   });
   $("#tree").addEventListener("click", (event) => {
+    const folder = event.target.closest("[data-dir]");
+    if (folder) toggleDir(folder.dataset.dir);
     const link = event.target.closest("a[data-index]");
     if (!link) return;
     event.preventDefault();
