@@ -84,6 +84,10 @@ When a stack is ready for the human to review:
 
 `diffview comments show <id>...` prints chosen threads in full.
 
+A human reads every reply and description you write. If the user has a
+prose linter, as a skill or a tool, run your text through it before you
+send a reply or hand over a description.
+
 Never resolve or reopen a thread. Both belong to the human, and the CLI
 refuses them without `--human`, a flag that is not for you.
 
