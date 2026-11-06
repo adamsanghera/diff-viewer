@@ -87,6 +87,30 @@ test("merge-bases use the freshest trunk, local or remote", async () => {
   assert.equal(feature.base, landed);
 });
 
+test("a branch recorded onto trunk at an old commit is based where it forks from the freshest trunk", async () => {
+  const repo = makeRepo();
+  const stale = repo.sha("main");
+  const fresh = repo.commit("landed upstream", { "u.txt": "u\n" }, { date: Math.floor(Date.now() / 1000) + 3600 });
+  repo.git("update-ref", "refs/remotes/origin/main", fresh);
+  repo.git("config", "remote.origin.url", "https://example.com/r.git");
+  repo.git("reset", "-q", "--hard", stale);
+  repo.git("checkout", "-q", "-b", "feature", fresh);
+  repo.commit("feature", { "f.txt": "f\n" });
+  setOrigin(repo, "feature", "main", stale);
+  const [feature] = (await stackOf(repo, { entry: "feature" })).entries;
+  assert.deepEqual([feature.source, feature.parent, feature.base], ["origin", null, fresh]);
+});
+
+test("a branch recorded onto a commit above every trunk keeps its recorded base", async () => {
+  const repo = makeRepo();
+  repo.git("checkout", "-q", "-b", "feature");
+  const above = repo.commit("not on any trunk yet", { "x.txt": "x\n" });
+  repo.commit("feature", { "f.txt": "f\n" });
+  setOrigin(repo, "feature", "main", above);
+  const [feature] = (await stackOf(repo, { entry: "feature" })).entries;
+  assert.equal(feature.base, above);
+});
+
 test("two branches at one commit are not each other's parent", async () => {
   const repo = linearStack();
   repo.git("branch", "a-copy", "a");
