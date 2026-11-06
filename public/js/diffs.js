@@ -14,7 +14,7 @@ import {
   viewedState,
 } from "./comments.js";
 import { hiddenSummary, rendered, renderedPaths } from "./filters.js";
-import { escapeHtml, startsCollapsed } from "./lib/format.js";
+import { escapeHtml, shortSha, startsCollapsed } from "./lib/format.js";
 import { $, getJson, root, state } from "./state.js";
 
 const PIERRE_THEMES = { light: "pierre-light", dark: "pierre-dark" };
@@ -319,6 +319,20 @@ function readySides(fileDiff, entry) {
   return { oldFile: oldSide.file, newFile: newSide.file };
 }
 
+const BASE_SOURCES = { origin: "Origin's record", graphite: "Graphite's record", "gh-stack": "gh stack's record", git: "the branch's git history" };
+
+/** In place of a diff too large to show: how large, where its base came from, and what usually fixes it. */
+function tooLargeNotice({ tooLarge, entry }) {
+  const from = BASE_SOURCES[entry.source] ?? `${entry.source}'s record`;
+  const onTrunk = entry.parent === null;
+  const count = (n, noun) => `${n.toLocaleString()} ${noun}${n === 1 ? "" : "s"}`;
+  return `<div class="diff-notice">
+    <h2>This diff is too large to show</h2>
+    <p>It changes ${count(tooLarge.files, "file")} across ${count(tooLarge.commits, "commit")}, from <code>${shortSha(tooLarge.base)}</code> to <code>${shortSha(tooLarge.head)}</code>, so its base looks stale. diffview took that base from ${escapeHtml(from)}.</p>
+    <p>${onTrunk ? "Fast-forward your trunk, then restack or re-track the branch onto it." : "Restack the branch onto its parent."}</p>
+  </div>`;
+}
+
 function renderFileViews(generation) {
   cleanUpViews();
   const container = $("#diffs");
@@ -375,7 +389,9 @@ function renderFileViews(generation) {
     }
     mountFile(item);
   });
-  if (!state.diff.files.length) container.innerHTML = '<p class="empty">This branch changes nothing.</p>';
+  if (state.diff.tooLarge) container.innerHTML = tooLargeNotice(state.diff);
+  else if (state.diff.error) container.innerHTML = `<div class="diff-notice"><h2>Could not show this diff</h2><p>${escapeHtml(state.diff.error)}</p></div>`;
+  else if (!state.diff.files.length) container.innerHTML = '<p class="empty">This branch changes nothing.</p>';
   const summary = hiddenSummary(state.diff.files);
   if (summary) container.insertAdjacentHTML("beforeend", `<p class="hidden-files faint">${escapeHtml(summary)}. <button class="link" type="button" data-reset-filters>Show all files</button></p>`);
 }

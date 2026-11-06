@@ -426,6 +426,11 @@ h1 .badge-merged { vertical-align: middle; font-size: var(--text-sm); }
 .file-placeholder { padding: 10px 14px; border: var(--hairline) solid var(--border-strong); border-radius: var(--radius-sm); background: var(--bg); font-size: var(--text-md); }
 .open-editor { font-size: var(--text-sm); text-decoration: none; }
 .empty, .error { color: var(--text-soft); }
+/* In place of a diff that is too large to show, or failed. */
+.diff-notice { max-width: var(--reading-width); padding: 14px 18px; border: var(--hairline) solid var(--border-strong); border-left: 3px solid var(--warning); border-radius: var(--radius-sm); background: var(--bg); font-size: var(--text-md); }
+.diff-notice h2 { margin: 0 0 6px; font-size: var(--text-lg); font-weight: var(--weight-semibold); }
+.diff-notice p { margin: 6px 0 0; overflow-wrap: anywhere; }
+.warn { color: var(--warning); }
 .error { color: var(--danger); }
 
 /* The review area: diffs, and the comment rail beside them when it is docked. */

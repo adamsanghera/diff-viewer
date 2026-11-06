@@ -13,6 +13,11 @@ export function renderBranchHead() {
   const deletions = files.reduce((n, f) => n + f.deletions, 0);
   const parent = entry.parent ?? state.stack.trunk ?? "trunk";
   const pr = entry.pr ? (entry.pr.url ? `<a href="${escapeHtml(entry.pr.url)}" target="_blank" rel="noreferrer">#${entry.pr.number}</a>` : `#${entry.pr.number}`) : "";
+  const counts = state.diff.tooLarge
+    ? `<span class="warn">diff too large to show</span>`
+    : state.diff.error
+      ? `<span class="warn">diff could not be shown</span>`
+      : `${files.length} ${files.length === 1 ? "file" : "files"} <span class="add">+${additions}</span> <span class="del">−${deletions}</span>`;
   const old = state.version
     ? `<p class="old-version">Showing v${state.version.seq} of ${state.version.latestSeq}, as it was ${new Date(state.version.observedAt).toLocaleString()}. <button class="link" type="button" data-latest>Back to the latest</button></p>`
     : "";
@@ -21,7 +26,7 @@ export function renderBranchHead() {
     <p class="branch-meta">
       on <strong>${escapeHtml(parent)}</strong>
       <span class="faint">${shortSha(entry.base)}..${uncommitted ? "working tree" : shortSha(entry.head)}</span>
-      · ${files.length} ${files.length === 1 ? "file" : "files"} <span class="add">+${additions}</span> <span class="del">−${deletions}</span>
+      · ${counts}
       ${hidden ? `<span class="faint" title="Tests and generated files, not counted while hidden">(${hidden} hidden)</span>` : ""}
       · from ${escapeHtml(entry.source)}
       ${entry.needsRestack ? '<span class="badge badge-warn">needs restack</span>' : ""}

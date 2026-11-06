@@ -106,7 +106,11 @@ export function renderStack() {
     const top = index === 0 ? " stack-top" : "";
     const size = shownSize(state.stackSizes?.[entry.id]);
     const viewed = viewedProgress(size);
-    const sizeText = size ? `<span class="add">+${size.additions}</span> <span class="del">−${size.deletions}</span>${viewed.html ? ` · ${viewed.html}` : ""}` : "";
+    const sizeText = size?.tooLarge
+      ? `<span class="warn" title="Its diff changes ${size.tooLarge.files.toLocaleString()} files, too many to show">too large</span>`
+      : size
+        ? `<span class="add">+${size.additions}</span> <span class="del">−${size.deletions}</span>${viewed.html ? ` · ${viewed.html}` : ""}`
+        : "";
     const merged = state.mergeState?.[entry.id] ? " stack-merged" : "";
     const dotStyle = size ? ` style="--dot:${dotDiameter(size)}px"` : "";
     return `<li><a class="stack-row${top}${active}${viewed.done ? " stack-viewed" : ""}${merged}" href="?${new URLSearchParams({ branch: entry.id, stack: state.stackOf })}" data-branch="${escapeHtml(entry.id)}" style="--depth:${depth}" title="${escapeHtml(entry.id)} (from ${escapeHtml(entry.source)})">
@@ -202,7 +206,15 @@ export function renderTree() {
     }
     return `<ul>${items.join("")}</ul>`;
   };
-  const empty = state.overview ? "Pick a branch to see its files" : query ? "No matching files" : "No changes";
+  const empty = state.overview
+    ? "Pick a branch to see its files"
+    : state.diff?.tooLarge
+      ? "Too many files to list"
+      : state.diff?.error
+        ? "Its diff could not be shown"
+        : query
+          ? "No matching files"
+          : "No changes";
   $("#tree").innerHTML = shown.length ? renderNode(buildTree(shown.map((f) => f.path))) : `<div class="tree-empty">${empty}</div>`;
   markFileInView();
 }

@@ -101,12 +101,24 @@ async function loadOverview() {
   renderStack();
 }
 
+/** A diff that could not be computed, shown with its stack entry so the header still says which range failed; null when the stack lacks the branch. */
+function failedDiff(error) {
+  const entry = state.stack?.entries.find((e) => e.id === state.branch);
+  return entry ? { entry, error, files: [], patch: "", sha: null, version: null } : null;
+}
+
 async function loadDiff({ force = false } = {}) {
   if (state.overview) return loadOverview();
   const params = new URLSearchParams({ branch: state.branch, stack: state.stackOf });
   if (state.version) params.set("v", String(state.version.seq));
-  const diff = await getJson(`/api/diff?${params}`);
-  if (!force && diff.sha === state.diff?.sha && diff.entry.base === state.diff.entry.base) {
+  let diff;
+  try {
+    diff = await getJson(`/api/diff?${params}`);
+  } catch (err) {
+    diff = failedDiff(err.message);
+    if (!diff) throw err;
+  }
+  if (!force && diff.sha && diff.sha === state.diff?.sha && diff.entry.base === state.diff.entry.base) {
     state.diff.version = diff.version;
     return false;
   }

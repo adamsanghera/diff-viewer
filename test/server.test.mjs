@@ -4,7 +4,7 @@ import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { startServer } from "../lib/server.mjs";
+import { keepWarm, startServer } from "../lib/server.mjs";
 import { openStore } from "../lib/store.mjs";
 import { until } from "./helpers/browser.mjs";
 import { makeRepo } from "./helpers/repo.mjs";
@@ -38,6 +38,59 @@ test("port 0 takes any free port, which the url names and the Host check accepts
   assert.ok(started.port > 0, `bound to ${started.port}`);
   assert.equal(started.url, `http://127.0.0.1:${started.port}/`);
   assert.equal((await fetch(`${started.url}api/info`)).status, 200);
+});
+
+test("a branch tracked onto a stale trunk is too large to show, and diffs right once trunk moves, without a restart", async () => {
+  // main is stale: the branch is built on five commits main does not have yet, and Origin recorded main's old tip as its base.
+  const repo = makeRepo();
+  const stale = repo.sha("main");
+  repo.git("checkout", "-q", "-b", "upstream");
+  for (let i = 0; i < 5; i++) repo.commit(`upstream ${i}`, { [`u${i}.txt`]: `${i}\n` });
+  const fresh = repo.sha("upstream");
+  repo.git("checkout", "-q", "-b", "feature");
+  repo.commit("feature", { "f.txt": "f\n" });
+  repo.git("branch", "-q", "-D", "upstream");
+  repo.git("config", "branch.feature.origin-parent", "main");
+  repo.git("config", "branch.feature.origin-parent-sha", stale);
+  const started = await startServer({ dir: repo.dir, port: 0, maxDiffFiles: 3 });
+  servers.push(started);
+  const diff = async () => (await fetch(`${started.url}api/diff?branch=feature`)).json();
+
+  const before = await diff();
+  assert.deepEqual(before.tooLarge, { files: 6, commits: 6, base: stale, head: repo.sha("feature") });
+  assert.deepEqual([before.files, before.sha], [[], null]);
+
+  repo.git("update-ref", "refs/heads/main", fresh);
+  const after = await diff();
+  assert.equal(after.tooLarge, undefined);
+  assert.equal(after.entry.base, fresh);
+  assert.deepEqual(after.files.map((f) => f.path), ["f.txt"]);
+});
+
+test("the warm-up logs a failure once, and again only when it changes or after a warm-up succeeds", async () => {
+  const logged = [];
+  const consoleError = console.error;
+  console.error = (message) => logged.push(message.replace("diffview: could not pre-compute diffs: ", ""));
+  try {
+    let failure = "boom";
+    const listeners = [];
+    const review = { warm: async () => {
+      if (failure) throw new Error(failure);
+    } };
+    await keepWarm(review, { listen: (listener) => listeners.push(listener) });
+    const refresh = listeners[0];
+    await refresh();
+    await refresh();
+    failure = "bang";
+    await refresh();
+    failure = null;
+    await refresh();
+    failure = "bang";
+    await refresh();
+  } finally {
+    console.error = consoleError;
+  }
+  assert.deepEqual(logged, ["boom", "bang", "bang"]);
 });
 
 test("the stack and a branch's committed diff", async () => {

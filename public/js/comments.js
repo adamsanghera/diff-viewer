@@ -208,6 +208,12 @@ export function clickedLine(item, props) {
 
 export async function loadComments() {
   if (!state.comments.enabled || !state.diff) return;
+  // A diff too large to show, or one that failed, has no lines for threads to sit on.
+  if (!state.diff.sha) {
+    state.comments.threads = [];
+    renderComments();
+    return;
+  }
   const params = new URLSearchParams({ branch: state.branch, sha: state.diff.sha });
   if (state.description?.sha256) params.set("descriptionSha", state.description.sha256);
   const data = await getJson(`/api/comments?${params}`);

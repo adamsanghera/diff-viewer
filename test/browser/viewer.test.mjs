@@ -103,6 +103,30 @@ test("moving to another branch marks the page loading, naming the branch at once
   assert.equal(await page.eval(() => document.documentElement.scrollWidth <= innerWidth), true, "the loading bar never widens the page");
 });
 
+test("a diff too large to show says how large, where its base came from, and what to do, in place of the diff", options, async () => {
+  const repo = makeRepo();
+  repo.git("checkout", "-q", "-b", "feat/a");
+  repo.commit("a", { "a.txt": "a\n", "b.txt": "b\n" });
+  await ensureVendorBundle();
+  const started = await startServer({ dir: repo.dir, port: 0, maxDiffFiles: 1 });
+  servers.push(started);
+  const page = await (await chrome()).open(`${started.url}view`);
+  await page.waitFor(() => document.querySelector("#diffs .diff-notice"), { what: "the too-large notice" });
+  const shown = await page.eval(() => ({
+    notice: document.querySelector("#diffs .diff-notice").innerText.replace(/\s+/g, " "),
+    tree: document.querySelector("#tree").innerText.trim(),
+    head: document.querySelector(".branch-meta").innerText.replace(/\s+/g, " "),
+    size: document.querySelector('.stack-row[data-branch="feat/a"] .stack-size')?.innerText,
+  }));
+  assert.match(shown.notice, /This diff is too large to show/);
+  assert.match(shown.notice, /It changes 2 files across 1 commit, from \w+ to \w+, so its base looks stale\. diffview took that base from the branch's git history\./);
+  assert.match(shown.notice, /Fast-forward your trunk/);
+  assert.equal(shown.tree, "Too many files to list");
+  assert.match(shown.head, /diff too large to show/);
+  await page.waitFor(() => document.querySelector('.stack-row[data-branch="feat/a"] .stack-size')?.innerText === "too large", { what: "the stack to say too large" });
+  assert.deepEqual(page.errors, []);
+});
+
 test("s shows and hides the stack and f the files, each on its own; with both hidden the sidebar goes", options, async () => {
   const { page } = await openViewer();
   const press = (key) => page.eval((k) => document.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true })), key);
