@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { openRepo } from "../lib/repo.mjs";
-import { loadStack } from "../lib/stack.mjs";
+import { loadStack, staleTrunkWarning } from "../lib/stack.mjs";
 import { makeRepo } from "./helpers/repo.mjs";
 
 /** main <- a <- b <- c, each branch adding one file. Returns the repo with c checked out. */
@@ -109,6 +109,22 @@ test("a branch recorded onto a commit above every trunk keeps its recorded base"
   setOrigin(repo, "feature", "main", above);
   const [feature] = (await stackOf(repo, { entry: "feature" })).entries;
   assert.equal(feature.base, above);
+});
+
+test("a local trunk far behind origin's is warned about, and one close behind or without a remote is not", async () => {
+  const repo = makeRepo();
+  const opened = await openRepo(repo.dir);
+  assert.equal(await staleTrunkWarning(opened, "main", { threshold: 2 }), null, "no origin/main");
+  const stale = repo.sha("main");
+  repo.commit("one", { "1.txt": "1\n" });
+  const ahead = repo.commit("two", { "2.txt": "2\n" });
+  repo.git("update-ref", "refs/remotes/origin/main", ahead);
+  repo.git("reset", "-q", "--hard", stale);
+  assert.equal(await staleTrunkWarning(opened, "main", { threshold: 3 }), null, "2 behind, under 3");
+  assert.equal(
+    await staleTrunkWarning(opened, "main", { threshold: 2 }),
+    "Local main is 2 commits behind origin/main. A branch tracked onto it records that old commit as its base: diffview diffs it from where it forks from trunk instead, but your stacking tool's records may still be off. Fast-forward main to origin/main.",
+  );
 });
 
 test("two branches at one commit are not each other's parent", async () => {

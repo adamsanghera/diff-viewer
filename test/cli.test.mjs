@@ -249,6 +249,7 @@ test("review lists what lacks a description, starts one viewer, links the Overvi
   assert.equal((await fetch(link)).status, 200);
 
   assert.doesNotMatch(first.stdout, /Uncommitted/);
+  assert.doesNotMatch(first.stdout, /behind origin/, "a current trunk draws no warning");
 
   ctx.repo.write("src/app.js", "edited on disk\n");
   const second = review("--no-wait");

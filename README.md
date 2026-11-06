@@ -40,6 +40,8 @@ diffview --port 5000 --no-open   # first port to try, and no browser tab
 
 When a branch is recorded by several stacking tools, the one that touched it last wins: a rebase by one tool leaves the others' recorded bases out of the branch's history, and among records still valid, the base nearest the tip is the latest. Branches no tool records are placed by their git history. The header names where the stack came from.
 
+A branch on trunk diffs from where it forks from the freshest trunk (local or any remote's, whichever was committed last), as `git diff main...branch` does, when that is above its recorded base: a branch tracked onto a stale local `main` records that old commit. A diff that still changes more than 3,000 files is not shown; the page says how large it is and where its base came from. `diffview review` warns when local trunk is 1,000 or more commits behind `origin`'s.
+
 ## Comments for agents
 
 An agent hands you a stack from the repo. It prints the link first, then parks the wait where its host can wake it: a background shell in Cursor, a [pi-subagents](https://github.com/nicobailon/pi-subagents) child in Pi.
